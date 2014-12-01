@@ -2,20 +2,22 @@
 # Automatically-generated file. Do not edit!
 ################################################################################
 
-CG_TOOL_ROOT := /home/taschtj/ti/ccsv6/tools/compiler/arm_5.1.6
+SHELL = cmd.exe
+
+CG_TOOL_ROOT := c:/ti/ccsv6/tools/compiler/arm_5.1.6
 
 ORDERED_OBJS += \
 $(GEN_CMDS__FLAG) \
 "./main.obj" \
 "./tm4c1294ncpdt_startup_ccs.obj" \
-"/media/taschtj/OSDisk/ti/TivaWare_C_Series-2.1.0.12573/driverlib/ccs/Debug/driverlib.lib" \
+"C:/ti/TivaWare_C_Series-2.1.0.12573/driverlib/ccs/Debug/driverlib.lib" \
 "../tm4c1294ncpdt.cmd" \
 -l"libc.a" \
 
 -include ../makefile.init
 
-RM := rm -rf
-RMDIR := rm -rf
+RM := DEL /F
+RMDIR := RMDIR /S/Q
 
 # All of the sources participating in the build are defined here
 -include sources.mk
@@ -127,13 +129,13 @@ all: EPI_demo.out
 EPI_demo.out: $(OBJS) $(CMD_SRCS) $(LIB_SRCS) $(GEN_CMDS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: ARM Linker'
-	"/home/taschtj/ti/ccsv6/tools/compiler/arm_5.1.6/bin/armcl" -mv7M4 --code_state=16 --float_support=FPv4SPD16 --abi=eabi -me -g --gcc --define=ccs="ccs" --define=PART_TM4C1294NCPDT --display_error_number --diag_warning=225 --diag_wrap=off -z -m"EPI_demo.map" --heap_size=0 --stack_size=512 -i"/home/taschtj/ti/ccsv6/tools/compiler/arm_5.1.6/lib" -i"/home/taschtj/ti/ccsv6/tools/compiler/arm_5.1.6/include" --reread_libs --warn_sections --display_error_number --diag_wrap=off --xml_link_info="EPI_demo_linkInfo.xml" --rom_model -o "EPI_demo.out" $(ORDERED_OBJS)
+	"c:/ti/ccsv6/tools/compiler/arm_5.1.6/bin/armcl" -mv7M4 --code_state=16 --float_support=FPv4SPD16 --abi=eabi -me -g --gcc --define=ccs="ccs" --define=PART_TM4C1294NCPDT --display_error_number --diag_warning=225 --diag_wrap=off -z -m"EPI_demo.map" --heap_size=0 --stack_size=512 -i"c:/ti/ccsv6/tools/compiler/arm_5.1.6/lib" -i"c:/ti/ccsv6/tools/compiler/arm_5.1.6/include" --reread_libs --warn_sections --display_error_number --diag_wrap=off --xml_link_info="EPI_demo_linkInfo.xml" --rom_model -o "EPI_demo.out" $(ORDERED_OBJS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 
 EPI_demo.hex: $(EXE_OUTPUTS)
 	@echo 'Invoking: ARM Hex Utility'
-	"/home/taschtj/ti/ccsv6/tools/compiler/arm_5.1.6/bin/armhex"  -o "EPI_demo.hex" $(EXE_OUTPUTS__QUOTED)
+	"c:/ti/ccsv6/tools/compiler/arm_5.1.6/bin/armhex"  -o "EPI_demo.hex" $(EXE_OUTPUTS__QUOTED)
 	@echo 'Finished building: $@'
 	@echo ' '
 

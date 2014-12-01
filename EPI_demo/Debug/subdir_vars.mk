@@ -7,7 +7,7 @@ CMD_SRCS += \
 ../tm4c1294ncpdt.cmd 
 
 LIB_SRCS += \
-/home/taschtj/ti/ccsv6/eclipse/C:/TI/TivaWare_C_Series-2.1.0.12573/driverlib/ccs/Debug/driverlib.lib 
+C:/ti/TivaWare_C_Series-2.1.0.12573/driverlib/ccs/Debug/driverlib.lib 
 
 C_SRCS += \
 ../main.c \
