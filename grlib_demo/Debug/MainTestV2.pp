@@ -24,6 +24,18 @@ MainTestV2.obj: c:/ti/ccsv6/tools/compiler/arm_5.1.6/include/math.h
 MainTestV2.obj: c:/ti/ccsv6/tools/compiler/arm_5.1.6/include/ymath.h
 MainTestV2.obj: C:/ti/TivaWare_C_Series-2.1.0.12573/driverlib/fpu.h
 MainTestV2.obj: C:/ti/TivaWare_C_Series-2.1.0.12573/driverlib/debug.h
+MainTestV2.obj: C:/ti/TivaWare_C_Series-2.1.0.12573/inc/hw_ints.h
+MainTestV2.obj: C:/ti/TivaWare_C_Series-2.1.0.12573/driverlib/pin_map.h
+MainTestV2.obj: C:/ti/TivaWare_C_Series-2.1.0.12573/driverlib/timer.h
+MainTestV2.obj: C:/ti/TivaWare_C_Series-2.1.0.12573/inc/hw_nvic.h
+MainTestV2.obj: C:/ti/TivaWare_C_Series-2.1.0.12573/driverlib/flash.h
+MainTestV2.obj: C:/ti/TivaWare_C_Series-2.1.0.12573/driverlib/udma.h
+MainTestV2.obj: C:/ti/TivaWare_C_Series-2.1.0.12573/utils/ustdlib.h
+MainTestV2.obj: c:/ti/ccsv6/tools/compiler/arm_5.1.6/include/stdarg.h
+MainTestV2.obj: c:/ti/ccsv6/tools/compiler/arm_5.1.6/include/time.h
+MainTestV2.obj: ../images.h
+MainTestV2.obj: C:/ti/TivaWare_C_Series-2.1.0.12573/inc/hw_epi.h
+MainTestV2.obj: C:/ti/TivaWare_C_Series-2.1.0.12573/driverlib/epi.h
 
 ../MainTestV2.c: 
 c:/ti/ccsv6/tools/compiler/arm_5.1.6/include/stdint.h: 
@@ -49,3 +61,15 @@ c:/ti/ccsv6/tools/compiler/arm_5.1.6/include/math.h:
 c:/ti/ccsv6/tools/compiler/arm_5.1.6/include/ymath.h: 
 C:/ti/TivaWare_C_Series-2.1.0.12573/driverlib/fpu.h: 
 C:/ti/TivaWare_C_Series-2.1.0.12573/driverlib/debug.h: 
+C:/ti/TivaWare_C_Series-2.1.0.12573/inc/hw_ints.h: 
+C:/ti/TivaWare_C_Series-2.1.0.12573/driverlib/pin_map.h: 
+C:/ti/TivaWare_C_Series-2.1.0.12573/driverlib/timer.h: 
+C:/ti/TivaWare_C_Series-2.1.0.12573/inc/hw_nvic.h: 
+C:/ti/TivaWare_C_Series-2.1.0.12573/driverlib/flash.h: 
+C:/ti/TivaWare_C_Series-2.1.0.12573/driverlib/udma.h: 
+C:/ti/TivaWare_C_Series-2.1.0.12573/utils/ustdlib.h: 
+c:/ti/ccsv6/tools/compiler/arm_5.1.6/include/stdarg.h: 
+c:/ti/ccsv6/tools/compiler/arm_5.1.6/include/time.h: 
+../images.h: 
+C:/ti/TivaWare_C_Series-2.1.0.12573/inc/hw_epi.h: 
+C:/ti/TivaWare_C_Series-2.1.0.12573/driverlib/epi.h: 
