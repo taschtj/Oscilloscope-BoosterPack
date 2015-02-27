@@ -87,8 +87,8 @@
 // The size of the memory transfer source and destination buffers (in words).
 //
 //*****************************************************************************
-#define MEM_BUFFER_SIZE         1024
-#define MaxSize					1024*8 // Must be multiple of MEM_BUFFER_SIZE
+#define MEM_BUFFER_SIZE         1024/2
+#define MaxSize					1024*16 // Must be multiple of MEM_BUFFER_SIZE
 
 //*****************************************************************************
 //
@@ -159,7 +159,7 @@ uint32_t totalA, totalB, pixel_divider = 5;
 uint32_t i = 0, j = 0, f = 0, k = 0, m = 0, l = 0, EPIDivide = 5;
 uint16_t Max1, Max2, Min1, Min2, Amp1, Amp2, Freq1, Freq2;
 uint32_t receive[24], oppreceive[24], total, CountSize = 1024, count = 0, pixel_total = 0, pixel_average, TriggerLevel = 1050;
-uint8_t pri, alt, TriggerStart = 0, Trigger = 0, NumAvg = 2, GoThrough = 0, CaptureMode = 1, TriggerMode = 0;
+uint8_t pri, alt, TriggerStart = 0, Trigger = 0, NumAvg = 5, GoThrough = 0, CaptureMode = 1, TriggerMode = 0;
 uint16_t NumSkip = 1, TriggerPosition = 0, old[SERIES_LENGTH], pixels[SERIES_LENGTH], midlevel;
 uint32_t ui32Mode;
 uint32_t *EPISource;
@@ -1071,7 +1071,8 @@ int main(void) {
 
 	while (1) {
 
-		if (1) {
+		if (transfer_done[0] == 1) {
+				transfer_done[0] = 0;
 					for (f = 0; f < MEM_BUFFER_SIZE; f++) {
 						/*receive[0] = inputs[f] & 0b00000000000000000000000000010000;
 						receive[1] = inputs[f] & 0b00000000000000000000000000100000;
@@ -1125,6 +1126,8 @@ int main(void) {
 							totalA = 1024 + (receive[0] + 2*receive[1] + 4*receive[2] + 8*receive[3]
 							         + 16*receive[4] + 32*receive[5] + 64*receive[6] + 128*receive[7]
 							         + 1*(256*receive[8] + 512*receive[9] + 1024*receive[10]));
+
+							values[f + k*MEM_BUFFER_SIZE] = totalA & 0b00000000000000000000111111111111;
 						}
 						else{
 
@@ -1191,6 +1194,8 @@ int main(void) {
 							totalA = 1024 - (1 + receive[0] + 2*receive[1] + 4*receive[2] + 8*receive[3]
 							         + 16*receive[4] + 32*receive[5] + 64*receive[6] + 128*receive[7]
 							         + 1*(256*receive[8] + 512*receive[9] + 1024*receive[10]));
+
+							values[f + k*MEM_BUFFER_SIZE] = totalA & 0b00000000000000000000111111111111;
 						}
 
 						totalB = receive[12]/8192 + 2*(receive[13]/16384) + 4*(receive[14]/32768)
@@ -1200,23 +1205,21 @@ int main(void) {
 								 + 1024*(receive[22]/8388608) + 2048*(receive[23]/16777216);
 
 
-						values[f + k*MEM_BUFFER_SIZE] = totalA;
-
 						if(TriggerMode == 0){
-							if(totalA <= TriggerLevel && totalA >= (TriggerLevel - 10))
+							if(values[f + k*MEM_BUFFER_SIZE] <= TriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel - 10))
 								below = 1;
 
-							if(totalA >= TriggerLevel && totalA >= (TriggerLevel + 10) && below == 1){
+							if(values[f + k*MEM_BUFFER_SIZE] >= TriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel + 10) && below == 1){
 								TriggerStart = 1;
 								Trigger = 1;
 								below = 0;
 							}
 						}
 						else if(TriggerMode == 1){
-							if(totalA >= TriggerLevel)
+							if(values[f + k*MEM_BUFFER_SIZE] >= TriggerLevel)
 								above = 0;
 
-							if(totalA <= TriggerLevel && above == 0){
+							if(values[f + k*MEM_BUFFER_SIZE] <= TriggerLevel && above == 0){
 								TriggerStart = 1;
 								Trigger = 1;
 								above = 1;
@@ -1239,7 +1242,7 @@ int main(void) {
 								else{
 									j=0;
 									if(m + TriggerPosition < SERIES_LENGTH){
-										pixels[m + TriggerPosition] = totalA;
+										pixels[m + TriggerPosition] = values[f + k*MEM_BUFFER_SIZE];
 										m++;
 									}
 									else{
@@ -1270,7 +1273,7 @@ int main(void) {
 								}
 								if(j<NumAvg){
 									j++;
-									pixel_total = pixel_total + totalA;
+									pixel_total = pixel_total + values[f + k*MEM_BUFFER_SIZE];
 								}
 								else{
 									j=0;
@@ -1307,9 +1310,13 @@ int main(void) {
 					else
 						GoThrough++;
 
-					if(GoThrough >= 100){
-						for(i=0;i<SERIES_LENGTH;i++){
-							pixels[i] = 1024;
+					if(GoThrough > 200){
+						GoThrough = 200;
+					}
+
+					if(GoThrough >= 10){
+						for(i=SERIES_LENGTH;i>0;i--){
+							pixels[SERIES_LENGTH-i] = values[f + k*MEM_BUFFER_SIZE - i];
 						}
 					}
 
@@ -1322,7 +1329,8 @@ int main(void) {
 					k = 0;
 
 
-				if (1) {
+				if (transfer_done[1] == 1) {
+					transfer_done[1] = 0;
 					for (f = 0; f < MEM_BUFFER_SIZE; f++) {
 						/*receive[0] = inputs2[f] & 0b00000000000000000000000000010000;
 						receive[1] = inputs2[f] & 0b00000000000000000000000000100000;
@@ -1378,6 +1386,8 @@ int main(void) {
 							totalA = 1024 + (receive[0] + 2*receive[1] + 4*receive[2] + 8*receive[3]
 							         + 16*receive[4] + 32*receive[5] + 64*receive[6] + 128*receive[7]
 							         + 1*(256*receive[8] + 512*receive[9] + 1024*receive[10]));
+
+							values[f + k*MEM_BUFFER_SIZE] = totalA & 0b00000000000000000000111111111111;
 						}
 						else{
 							if(receive[0])
@@ -1438,6 +1448,8 @@ int main(void) {
 							totalA = 1024 - (1 + receive[0] + 2*receive[1] + 4*receive[2] + 8*receive[3]
 							         + 16*receive[4] + 32*receive[5] + 64*receive[6] + 128*receive[7]
 							         + 1*(256*receive[8] + 512*receive[9] + 1024*receive[10]));
+
+							values[f + k*MEM_BUFFER_SIZE] = totalA & 0b00000000000000000000111111111111;
 						}
 
 						totalB = receive[12]/8192 + 2*(receive[13]/16384) + 4*(receive[14]/32768)
@@ -1447,23 +1459,23 @@ int main(void) {
 								 + 1024*(receive[22]/8388608) + 2048*(receive[23]/16777216);
 
 
-						values[f + k*MEM_BUFFER_SIZE] = totalA;
+
 
 						if(TriggerMode == 0){
-							if(totalA <= TriggerLevel && totalA >= (TriggerLevel - 10))
+							if(values[f + k*MEM_BUFFER_SIZE] <= TriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel - 10))
 								below = 1;
 
-							if(totalA >= TriggerLevel && totalA >= (TriggerLevel + 10) && below == 1){
+							if(values[f + k*MEM_BUFFER_SIZE] >= TriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel + 10) && below == 1){
 								TriggerStart = 1;
 								Trigger = 1;
 								below = 0;
 							}
 						}
 						else if(TriggerMode == 1){
-							if(totalA >= TriggerLevel)
+							if(values[f + k*MEM_BUFFER_SIZE] >= TriggerLevel)
 								above = 0;
 
-							if(totalA <= TriggerLevel && above == 0){
+							if(values[f + k*MEM_BUFFER_SIZE] <= TriggerLevel && above == 0){
 								TriggerStart = 1;
 								Trigger = 1;
 								above = 1;
@@ -1486,7 +1498,7 @@ int main(void) {
 								else{
 									j=0;
 									if(m + TriggerPosition< SERIES_LENGTH){
-										pixels[m + TriggerPosition] = totalA;
+										pixels[m + TriggerPosition] = values[f + k*MEM_BUFFER_SIZE];
 										m++;
 									}
 									else{
@@ -1517,7 +1529,7 @@ int main(void) {
 								}
 								if(j<NumAvg){
 									j++;
-									pixel_total = pixel_total + totalA;
+									pixel_total = pixel_total + values[f + k*MEM_BUFFER_SIZE];
 								}
 								else{
 									j=0;
@@ -1554,9 +1566,13 @@ int main(void) {
 					else
 						GoThrough++;
 
-					if(GoThrough >= 100){
-						for(i=0;i<SERIES_LENGTH;i++){
-							pixels[i] = 1024;
+					if(GoThrough > 200){
+						GoThrough = 200;
+					}
+
+					if(GoThrough >= 10){
+						for(i=SERIES_LENGTH;i>0;i--){
+							pixels[SERIES_LENGTH-i] = values[f + k*MEM_BUFFER_SIZE - i];
 						}
 					}
 
@@ -1692,6 +1708,7 @@ void EPIIntHandler(void) {
 		alt = pui8ControlTable[1000] & 0b11;
 
 		if (pri == 0) {
+			transfer_done[0] = 1;
 			uDMAChannelTransferSet(UDMA_CHANNEL_SW | UDMA_PRI_SELECT,
 			UDMA_MODE_PINGPONG, EPISource, g_ui32DstBuf[0],
 			MEM_BUFFER_SIZE);
@@ -1703,6 +1720,7 @@ void EPIIntHandler(void) {
 		}
 
 		if (alt == 0) {
+			transfer_done[1] = 1;
 			uDMAChannelTransferSet(UDMA_CHANNEL_SW | UDMA_ALT_SELECT,
 			UDMA_MODE_PINGPONG, EPISource, g_ui32DstBuf2[0],
 			MEM_BUFFER_SIZE);
