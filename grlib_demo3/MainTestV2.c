@@ -199,6 +199,7 @@ extern tRadioButtonWidget g_sRadioBtnMath;
 extern tRadioButtonWidget g_sRadioBtnMaximum;
 extern tRadioButtonWidget g_sRadioBtnMinimum;
 extern tRadioButtonWidget g_sRadioBtnAverage;
+extern tSliderWidget g_sTriggerSlider;
 //for grid
 int x;
 int y;
@@ -227,6 +228,8 @@ void AddTimeDiv(tWidget *psWidget);
 void MinusTimeDiv(tWidget *psWidget);
 void ClrMyWidget();
 double ASCtoDouble(char t[]);
+void TriggerFunction(tWidget *pWidget);
+void OnSliderChange(tWidget *psWidget, int32_t i32Value);
 
 
 tPushButtonWidget g_psTopButtons[];
@@ -456,6 +459,12 @@ RectangularButton(g_sPushBtnMinusTime, &g_sAddMinusTime, 0, 0,
 		ClrGray, ClrWhite, ClrWhite, ClrWhite, g_psFontCm16, "-", 0, 0, 0, 0,
 		MinusTimeDiv);
 ///////////////////////////////////////////////////////////////////////////
+
+
+Slider(g_sTriggerSlider,0, 0, 0, &g_sKentec320x240x16_SSD2119, 300, 29, 20, 183, 29, 211, 29,
+                ( SL_STYLE_BACKG_FILL|SL_STYLE_FILL|SL_STYLE_OUTLINE | SL_STYLE_VERTICAL),
+                ClrGray, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
+                &g_sFontCm20, "25%", 0, 0, OnSliderChange);
 ///Bottom Buttons///////////////////////////////////////////////////////
 tPushButtonWidget g_psBotButtons[] =
 		{
@@ -1035,6 +1044,53 @@ void DWaveForm(tWidget *pWidgetR, tContext *psContext) {
 	}
 
 }
+void TriggerFunction(tWidget *pWidget){
+	ButtonTF = !ButtonTF;
+	if (ButtonTF) {
+		WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sTriggerSlider);
+
+		//WidgetAdd(WIDGET_ROOT, (tWidget *) &CanvasForLine);
+
+
+		WidgetPaint((tWidget * )&g_sTriggerSlider);
+
+		//WidgetPaint((tWidget *)&CanvasForLine);
+	} else {
+		//WidgetRemove((tWidget *)&CanvasForLine);
+		ClrMyWidget();
+	}
+}
+void
+OnSliderChange(tWidget *psWidget, int32_t i32Value){
+
+//    static char pcCanvasText[5];
+//    static char pcSliderText[5];
+//    usprintf(pcSliderText, "%3d%%", i32Value);
+//    Canvas(CanvasForLine, 0, 0, 0, &g_sKentec320x240x16_SSD2119, 0,
+//    		i32Value, 320, 2,CANVAS_STYLE_OUTLINE,0, ClrWhite, 0, 0,0, 0, 0);
+    //WidgetRemove((tWidget *)&CanvasForLine);
+
+	//for (x = 0; x <= 320; x += 1 ){
+		//GrPixelDraw(&sContext, x, y=i32Value);
+		//eDpyFlush(&g_sKentec320x240x16_SSD2119);
+		//DpyPixelDraw(&g_sKentec320x240x16_SSD2119,x,i32Value,0x000000FF);
+		//DpyLineDrawH(&g_sKentec320x240x16_SSD2119,0,320,i32Value,0x000000FF);
+	//}
+
+    //CanvasInit(&CanvasForLine,&g_sKentec320x240x16_SSD2119,0,i32Value,320,2);
+
+  //  WidgetAdd(WIDGET_ROOT, (tWidget *) &CanvasForLine);
+    //WidgetPaint((tWidget *)&CanvasForLine);
+
+    // WidgetPaint((tWidget *)&CanvasForLine);
+//    WidgetAdd(WIDGET_ROOT, (tWidget *) &CanvasForLine);
+//    WidgetPaint((tWidget *)&CanvasForLine);
+
+//	 SliderTextSet(&g_sTriggerSlider, pcSliderText);
+//	 WidgetPaint((tWidget *)&g_sTriggerSlider);
+
+
+}
 
 //
 int main(void) {
@@ -1609,6 +1665,7 @@ void ClrMyWidget(){
 	WidgetRemove((tWidget *) &g_sAddMinusC1);
 	WidgetRemove((tWidget *) &g_sAddMinusC2);
 	WidgetRemove((tWidget *) &g_sAddMinusTime);
+	WidgetRemove((tWidget *) &g_sTriggerSlider);
 
 	WidgetPaint((tWidget * )&g_sBackground);
 	WidgetPaint((tWidget * )&g_sWaveform);
