@@ -156,15 +156,17 @@ extern const uint8_t g_pui8Image[];
 extern const uint8_t g_pui9Image[];
 
 // global variables
+uint32_t totalsA[SERIES_LENGTH], averageA[SERIES_LENGTH];
 uint16_t totalA, totalB;
 uint32_t i = 0, j = 0, f = 0, k = 0, m = 0, l = 0, EPIDivide = 5;
-uint16_t Max1, Max2, Min1, Min2, Amp1, Amp2, Freq1, Freq2, pixel_divider = 5;
-uint32_t receive[24], oppreceive[24], total, CountSize = 1024, count = 0, pixel_total = 0, pixel_average, TriggerLevel = 1850;
-uint8_t pri, alt, TriggerStart = 0, Trigger = 0, NumAvg = 1, GoThrough = 0, CaptureMode = 1, TriggerMode = 0, begin = 0;
+uint16_t t= 0;
+uint16_t Amp1[3], Amp2[3], Freq1, Freq2, pixel_divider = 5, TriggerLevel = 1500, NumAvg = 20;
+uint32_t receive[24], oppreceive[24], total, CountSize = 1024, count = 0, pixel_total = 0, pixel_average;
+uint8_t pri, alt, TriggerStart = 0, Trigger = 0, GoThrough = 0, CaptureMode = 0, TriggerMode = 0, begin = 0;
 uint16_t NumSkip = 1, TriggerPosition = 0, old[SERIES_LENGTH], pixels[SERIES_LENGTH], midlevel;
 uint32_t ui32Mode;
 uint32_t *EPISource;
-uint8_t below = 0, above = 0, clockout = 0;
+uint8_t below = 0, above = 0, clockout = 0, stop = 0;
 uint8_t Mag1 = 0, Mag2 = 0, Time = 0;
 uint8_t transfer_done[2] = {0,0};
 
@@ -231,7 +233,7 @@ void ClrMyWidget();
 double ASCtoDouble(char t[]);
 void TriggerFunction(tWidget *pWidget);
 void OnSliderChange(tWidget *psWidget, int32_t i32Value);
-
+void RunStop(tWidget *psWidget);
 
 tPushButtonWidget g_psTopButtons[];
 tPushButtonWidget g_psBotButtons[];
@@ -240,7 +242,7 @@ tPushButtonWidget g_psBotButtons[];
 void setup(void);
 void SetupVoltageDivision(uint8_t Scale, uint8_t Channel);
 void SetupTimeDivision(uint8_t Scale);
-void SetupTrigger(uint8_t Level, uint8_t Start_Position, uint8_t Mode);
+void SetupTrigger(uint16_t Level, uint8_t Start_Position, uint8_t Mode);
 
 
 
@@ -412,7 +414,7 @@ tPushButtonWidget g_psBotButtons[] =
 										(PB_STYLE_OUTLINE | PB_STYLE_TEXT_OPAQUE | PB_STYLE_TEXT | PB_STYLE_FILL),
 										ClrGray, ClrWhite, ClrWhite, ClrWhite,
 										g_psFontCmss14, "Run/Stop", 0, 0, 0, 0,
-										0) };
+										RunStop) };
 ///////////////////////////////////////////////////////////////
 ///Radio Buttons for the menu//////////////////////////////////////////////
 tRadioButtonWidget g_psRadioBtnMenu[] = {
@@ -901,23 +903,6 @@ void DRadioMenu(tWidget *pWidgetR) {
 }
 void DWaveForm(tWidget *pWidgetR, tContext *psContext) {
 ///////////////////////////////////////////////////////////////////////
-//Fake Waveform
-	//float fRadians1;
-	//float fRadians2;
-	FPULazyStackingEnable();
-	FPUEnable();
-	/*fRadians1 = ((4 * M_PI) / SERIES_LENGTH);
-	fRadians2 = ((7 * M_PI) / SERIES_LENGTH);
-	GrContextForegroundSet(&sContext, ClrRed);
-	for (x = 0; x < SERIES_LENGTH; x++) {
-		GrCircleFill(&sContext, x, 75 - sinf(fRadians1 * x) * 40, 1);
-
-	}
-	GrContextForegroundSet(&sContext, ClrYellow);
-	for (x = 0; x < SERIES_LENGTH; x++) {
-		GrCircleFill(&sContext, x, 163 - sinf(fRadians2 * x) * 40, 1);
-
-	}*/
 
 	for (x = 0; x < SERIES_LENGTH; x++) {
 		GrContextForegroundSet(&sContext, ClrBlack);
@@ -966,7 +951,8 @@ void TriggerFunction(tWidget *pWidget){
 void
 OnSliderChange(tWidget *psWidget, int32_t i32Value){
 
-	TriggerLevel = (midlevel - i32Value)*pixel_divider;
+	SetupTrigger((midlevel - (uint16_t) i32Value)*pixel_divider,0,0);
+
 
 //    static char pcCanvasText[5];
 //    static char pcSliderText[5];
@@ -995,6 +981,13 @@ OnSliderChange(tWidget *psWidget, int32_t i32Value){
 //	 WidgetPaint((tWidget *)&g_sTriggerSlider);
 
 
+}
+
+void RunStop(tWidget *psWidget){
+	if(stop == 0)
+		stop = 1;
+	else
+		stop = 0;
 }
 
 //
@@ -1170,26 +1163,26 @@ int main(void) {
 							if(values[f + k*MEM_BUFFER_SIZE] <= TriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel - 10))
 								below = 1;
 
-							if(values[f + k*MEM_BUFFER_SIZE] >= TriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel + 10) && below == 1){
+							if(values[f + k*MEM_BUFFER_SIZE] >= TriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= (TriggerLevel + 10) && below == 1){
 								TriggerStart = 1;
 								Trigger = 1;
 								below = 0;
 							}
 						}
 						else if(TriggerMode == 1){
-							if(values[f + k*MEM_BUFFER_SIZE] >= TriggerLevel)
-								above = 0;
+							if(values[f + k*MEM_BUFFER_SIZE] >= TriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= (TriggerLevel + 10))
+								above = 1;
 
-							if(values[f + k*MEM_BUFFER_SIZE] <= TriggerLevel && above == 0){
+							if(values[f + k*MEM_BUFFER_SIZE] <= TriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel - 10) && above == 1){
 								TriggerStart = 1;
 								Trigger = 1;
-								above = 1;
+								above = 0;
 							}
 						}
 
 						if(TriggerStart == 1){
 							if(CaptureMode == 0){
-								if(begin == 0){
+								/*if(begin == 0){
 									begin=1;
 									for(i=0;i<TriggerPosition*NumSkip;i=i+NumSkip){
 										if((int32_t) (f + k*MEM_BUFFER_SIZE - TriggerPosition + i) < 0){
@@ -1199,28 +1192,28 @@ int main(void) {
 											pixels[i] = values[f + k*MEM_BUFFER_SIZE - TriggerPosition + i];
 										}
 									}
-								}
+								}*/
 								if(j<NumSkip){
 									j++;
 								}
 								else{
 									j=0;
-									if(m + TriggerPosition < SERIES_LENGTH){
-										pixels[m + TriggerPosition] = values[f + k*MEM_BUFFER_SIZE];
+									if(m < SERIES_LENGTH){
+										pixels[m] = values[f + k*MEM_BUFFER_SIZE];
 										m++;
 									}
 									else{
-										Max1 = 0;
-										Min1 = 4097;
+										Amp1[1] = 0;
+										Amp1[0] = 4097;
 										for(i=0;i<SERIES_LENGTH;i++){
-											if(pixels[i] < Min1){
-												Min1 = pixels[i];
+											if(pixels[i] < Amp1[0]){
+												Amp1[0] = pixels[i];
 											}
-											if(pixels[i] > Max1){
-												Max1 = pixels[i];
+											if(pixels[i] > Amp1[1]){
+												Amp1[1] = pixels[i];
 											}
 										}
-										Amp1 = Max1 - Min1;
+										Amp1[2] = Amp1[1] - Amp1[0];
 										m = 0;
 										begin = 0;
 										TriggerStart = 0;
@@ -1228,43 +1221,49 @@ int main(void) {
 								}
 							}
 							else if(CaptureMode == 1){
-								for(i=0;i<TriggerPosition;i++){
+								/*for(i=0;i<TriggerPosition;i++){
 									if((int32_t) (f + k*MEM_BUFFER_SIZE - TriggerPosition + i) < 0){
 										pixels[i] = values[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i)];
 									}
 									else{
 										pixels[i] = values[f + k*MEM_BUFFER_SIZE - TriggerPosition + i];
 									}
-								}
+								}*/
 								if(j<NumAvg){
-									j++;
-									pixel_total = pixel_total + values[f + k*MEM_BUFFER_SIZE];
-								}
-								else{
-									j=0;
-									pixel_average = pixel_total/NumAvg;
-									pixel_total = 0;
-
-									if(m + TriggerPosition < SERIES_LENGTH){
-										pixels[m + TriggerPosition] = pixel_average;
+									if(m < SERIES_LENGTH){
+										totalsA[m] = totalsA[m]+ values[f + k*MEM_BUFFER_SIZE];
 										m++;
 									}
 									else{
-										Max1 = 0;
-										Min1 = 4097;
-										for(i=0;i<SERIES_LENGTH;i++){
-											if(pixels[i] < Min1){
-												Min1 = pixels[i];
-											}
-											if(pixels[i] > Max1){
-												Max1 = pixels[i];
-											}
-										}
-										Amp1 = Max1 - Min1;
-										m = 0;
-										begin = 0;
+										j++;
+										m=0;
+										totalsA[m] = totalsA[m]+ values[f + k*MEM_BUFFER_SIZE];
+										m++;
 										TriggerStart = 0;
 									}
+								}
+								else{
+									j = 0;
+									for(i=0;i<SERIES_LENGTH;i++){
+										pixels[i] = totalsA[i]/NumAvg;
+									}
+									for(i=0;i<SERIES_LENGTH;i++){
+										totalsA[i] = 0;
+									}
+									Amp1[1] = 0;
+									Amp1[0] = 4097;
+									for(i=0;i<SERIES_LENGTH;i++){
+										if(pixels[i] < Amp1[0]){
+											Amp1[0] = pixels[i];
+										}
+										if(pixels[i] > Amp1[1]){
+											Amp1[1] = pixels[i];
+										}
+									}
+									Amp1[2] = Amp1[1] - Amp1[0];
+									m = 0;
+									begin = 0;
+									TriggerStart = 0;
 								}
 							}
 						}
@@ -1277,7 +1276,7 @@ int main(void) {
 						GoThrough++;
 
 					if(GoThrough > 200){
-						GoThrough = 200;
+						GoThrough = 20;
 					}
 
 					if(GoThrough >= 10){
@@ -1431,26 +1430,26 @@ int main(void) {
 							if(values[f + k*MEM_BUFFER_SIZE] <= TriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel - 10))
 								below = 1;
 
-							if(values[f + k*MEM_BUFFER_SIZE] >= TriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel + 10) && below == 1){
+							if(values[f + k*MEM_BUFFER_SIZE] >= TriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= (TriggerLevel + 10) && below == 1){
 								TriggerStart = 1;
 								Trigger = 1;
 								below = 0;
 							}
 						}
 						else if(TriggerMode == 1){
-							if(values[f + k*MEM_BUFFER_SIZE] >= TriggerLevel)
-								above = 0;
+							if(values[f + k*MEM_BUFFER_SIZE] >= TriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= (TriggerLevel + 10))
+								above = 1;
 
-							if(values[f + k*MEM_BUFFER_SIZE] <= TriggerLevel && above == 0){
+							if(values[f + k*MEM_BUFFER_SIZE] <= TriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel - 10) && above == 1){
 								TriggerStart = 1;
 								Trigger = 1;
-								above = 1;
+								above = 0;
 							}
 						}
 
 						if(TriggerStart == 1){
 							if(CaptureMode == 0){
-								if(begin == 0){
+								/*if(begin == 0){
 									begin=1;
 									for(i=0;i<TriggerPosition*NumSkip;i=i+NumSkip){
 										if((int32_t) (f + k*MEM_BUFFER_SIZE - TriggerPosition + i) < 0){
@@ -1460,28 +1459,28 @@ int main(void) {
 											pixels[i] = values[f + k*MEM_BUFFER_SIZE - TriggerPosition + i];
 										}
 									}
-								}
+								}*/
 								if(j<NumSkip){
 									j++;
 								}
 								else{
 									j=0;
-									if(m + TriggerPosition< SERIES_LENGTH){
-										pixels[m + TriggerPosition] = values[f + k*MEM_BUFFER_SIZE];
+									if(m < SERIES_LENGTH){
+										pixels[m] = values[f + k*MEM_BUFFER_SIZE];
 										m++;
 									}
 									else{
-										Max1 = 0;
-										Min1 = 4097;
+										Amp1[1] = 0;
+										Amp1[0] = 4097;
 										for(i=0;i<SERIES_LENGTH;i++){
-											if(pixels[i] < Min1){
-												Min1 = pixels[i];
+											if(pixels[i] < Amp1[0]){
+												Amp1[0] = pixels[i];
 											}
-											if(pixels[i] > Max1){
-												Max1 = pixels[i];
+											if(pixels[i] > Amp1[1]){
+												Amp1[1] = pixels[i];
 											}
 										}
-										Amp1 = Max1 - Min1;
+										Amp1[2] = Amp1[1] - Amp1[0];
 										m = 0;
 										begin = 0;
 										TriggerStart = 0;
@@ -1489,42 +1488,49 @@ int main(void) {
 								}
 							}
 							else if(CaptureMode == 1){
-								for(i=0;i<TriggerPosition;i++){
+								/*for(i=0;i<TriggerPosition;i++){
 									if((int32_t) (f + k*MEM_BUFFER_SIZE - TriggerPosition + i) < 0){
 										pixels[i] = values[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i)];
 									}
 									else{
 										pixels[i] = values[f + k*MEM_BUFFER_SIZE - TriggerPosition + i];
 									}
-								}
+								}*/
 								if(j<NumAvg){
-									j++;
-									pixel_total = pixel_total + values[f + k*MEM_BUFFER_SIZE];
-								}
-								else{
-									j=0;
-									pixel_average = pixel_total/NumAvg;
-									pixel_total = 0;
-
-									if(m + TriggerPosition < SERIES_LENGTH){
-										pixels[m + TriggerPosition] = pixel_average;
+									if(m < SERIES_LENGTH){
+										totalsA[m] = totalsA[m]+ values[f + k*MEM_BUFFER_SIZE];
 										m++;
 									}
 									else{
-										Max1 = 0;
-										Min1 = 4097;
-										for(i=0;i<SERIES_LENGTH;i++){
-											if(pixels[i] < Min1){
-												Min1 = pixels[i];
-											}
-											if(pixels[i] > Max1){
-												Max1 = pixels[i];
-											}
-										}
-										Amp1 = Max1 - Min1;
-										m = 0;
+										j++;
+										m=0;
+										totalsA[m] = totalsA[m]+ values[f + k*MEM_BUFFER_SIZE];
+										m++;
 										TriggerStart = 0;
 									}
+								}
+								else{
+									j = 0;
+									for(i=0;i<SERIES_LENGTH;i++){
+										pixels[i] = totalsA[i]/NumAvg;
+									}
+									for(i=0;i<SERIES_LENGTH;i++){
+										totalsA[i] = 0;
+									}
+									Amp1[1] = 0;
+									Amp1[0] = 4097;
+									for(i=0;i<SERIES_LENGTH;i++){
+										if(pixels[i] < Amp1[0]){
+											Amp1[0] = pixels[i];
+										}
+										if(pixels[i] > Amp1[1]){
+											Amp1[1] = pixels[i];
+										}
+									}
+									Amp1[2] = Amp1[1] - Amp1[0];
+									m = 0;
+									begin = 0;
+									TriggerStart = 0;
 								}
 							}
 						}
@@ -1537,7 +1543,7 @@ int main(void) {
 						GoThrough++;
 
 					if(GoThrough > 200){
-						GoThrough = 200;
+						GoThrough = 20;
 					}
 
 					if(GoThrough >= 10){
@@ -1547,6 +1553,7 @@ int main(void) {
 					}
 
 				}
+
 				if(k*MEM_BUFFER_SIZE + MEM_BUFFER_SIZE < MaxSize)
 					k++;
 
@@ -1723,13 +1730,12 @@ void EPIIntHandler(void) {
 void InitSWTransfer(void) {
 
 	//
-	// Enable interrupts from the uDMA software channel.
+	// Enable interrupts from the uDMA channel.
 	//
 	IntEnable(INT_UDMA);
 
 	//
-	// Put the attributes in a known state for the uDMA software channel.
-	// These should already be disabled by default.
+	// Setup attributes for UDMA channel 30
 	//
 	uDMAChannelAttributeDisable(UDMA_CHANNEL_SW,
 	UDMA_ATTR_USEBURST | UDMA_ATTR_ALTSELECT | (UDMA_ATTR_HIGH_PRIORITY |
@@ -1738,14 +1744,7 @@ void InitSWTransfer(void) {
 	uDMAChannelAttributeEnable(UDMA_CHANNEL_SW, UDMA_ATTR_HIGH_PRIORITY);
 
 	//
-	// Configure the control parameters for the SW channel.  The SW channel
-	// will be used to transfer between two memory buffers, 32 bits at a time.
-	// Therefore the data size is 32 bits, and the address increment is 32 bits
-	// for both source and destination.  The arbitration size will be set to 8,
-	// which causes the uDMA controller to rearbitrate after 8 items are
-	// transferred.  This keeps this channel from hogging the uDMA controller
-	// once the transfer is started, and allows other channels cycles if they
-	// are higher priority.
+	// Configure the control parameters for channel 30
 	//
 	uDMAChannelControlSet(UDMA_CHANNEL_SW | UDMA_PRI_SELECT,
 	UDMA_SIZE_32 | UDMA_SRC_INC_NONE | UDMA_DST_INC_32 |
@@ -1756,9 +1755,7 @@ void InitSWTransfer(void) {
 	UDMA_ARB_8);
 
 	//
-	// Set up the transfer parameters for the software channel.  This will
-	// configure the transfer buffers and the transfer size.  Auto mode must be
-	// used for software transfers.
+	// Set up the transfer parameters for the channel 30
 	//
 	uDMAChannelTransferSet(UDMA_CHANNEL_SW | UDMA_ALT_SELECT,
 	UDMA_MODE_PINGPONG, EPISource, g_ui32DstBuf2[0],
@@ -1769,9 +1766,7 @@ void InitSWTransfer(void) {
 	MEM_BUFFER_SIZE);
 
 	//
-	// Now the software channel is primed to start a transfer.  The channel
-	// must be enabled.  For software based transfers, a request must be
-	// issued.  After this, the uDMA memory transfer begins.
+	// Enable UDMA channel 30
 	//
 	uDMAChannelEnable(UDMA_CHANNEL_SW);
 }
@@ -1788,6 +1783,15 @@ void setup(void) {
 	}
 
 	midlevel = 2048/pixel_divider + 120;
+
+	// Give initial conditions for totals for averaging
+	for(i=0;i<SERIES_LENGTH;i++){
+		totalsA[i] = 0;
+	}
+
+	// Enable FPU
+	FPULazyStackingEnable();
+	FPUEnable();
 
 	//uDMA Stuff/////////////////////////////////////////////////////
 	//
@@ -1846,7 +1850,6 @@ void setup(void) {
 
 	// Configure Timer
 	TimerConfigure(TIMER0_BASE, TIMER_CFG_PERIODIC);
-	//TimerConfigure(TIMER1_BASE, TIMER_CFG_PERIODIC);
 
 	// Configure GPIO pins for EPI mode. Address obtained from pin_map.h
 	GPIOPinConfigure(GPIO_PA6_EPI0S8);
@@ -1933,19 +1936,14 @@ void setup(void) {
 	// Set Timer A to have a period of one tenth the clock freq
 	ui32Period = ui32SysClkFreq / 2;
 	TimerLoadSet(TIMER0_BASE, TIMER_A, ui32Period / 8 - 1);
-	//TimerLoadSet(TIMER1_BASE, TIMER_A, ui32Period / 5000000 - 1);
 
 	// Enable timer interrupt and set it to go off at Timer A timeouts
 	IntEnable(INT_TIMER0A);
-	//IntEnable(INT_TIMER1A);
 	TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
-	//TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
 	IntMasterEnable();
 
 	// Enable Timer A and B
 	TimerEnable(TIMER0_BASE, TIMER_A);
-	//TimerEnable(TIMER1_BASE, TIMER_A);
-
 
     // Set the PWM clock to the system clock.
     SysCtlPWMClockSet(SYSCTL_PWMDIV_1);
@@ -1984,37 +1982,16 @@ void Timer0IntHandler(void) {
 	// Clear the timer interrupt
 	TimerIntClear(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
 
-	//WidgetRemove((tWidget *) &g_sWaveform);
+	// Issue paint request to the widgets.
 
-	//
-	// Add the first panel to the widget tree.
-	//
-	//WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sWaveform);
-
-	//
-	// Issue the initial paint request to the widgets.
-	//
-	WidgetPaint((tWidget *)&g_sWaveform);
+	if(stop == 0)
+		WidgetPaint((tWidget *)&g_sWaveform);
 
 	//
 	// Process any messages in the widget message queue.
 	//
 	WidgetMessageQueueProcess();
 
-}
-
-void Timer1IntHandler(void) {
-	// Clear the timer interrupt
-	/*TimerIntClear(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
-
-	if(clockout == 0){
-		GPIOPinWrite(GPIO_PORTP_BASE, PADC_CLK_OUT, 0);
-		clockout = 1;
-	}
-	else{
-		GPIOPinWrite(GPIO_PORTP_BASE, PADC_CLK_OUT, PADC_CLK_OUT);
-		clockout = 0;
-	}*/
 }
 
 void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
@@ -2094,7 +2071,7 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 		case 1:
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0, BCh1_Mult_A0);
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,0);
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1, 0);
 			// DVGA
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
@@ -2103,7 +2080,7 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			break;
 		case 2:
 			// Multiplexer
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,0);
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0, 0);
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1, BCh1_Mult_A1);
 			// DVGA
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,0);
@@ -2181,68 +2158,56 @@ void SetupTimeDivision(uint8_t Scale){
 	switch(Scale){
 	case 0:
 		EPIDivide = 5;
-		NumAvg = 1;
 		NumSkip = 1;
 		break;
 	case 1:
 		EPIDivide = 10;
-		NumAvg = 1;
 		NumSkip = 1;
 		break;
 	case 2:
 		EPIDivide = 35;
-		NumAvg = 1;
 		NumSkip = 1;
 		break;
 	case 3:
 		EPIDivide = 75;
-		NumAvg = 1;
 		NumSkip = 1;
 		break;
 	case 4:
 		EPIDivide = 100;
-		NumAvg = 1;
 		NumSkip = 1;
 		break;
 	case 5:
 		EPIDivide = 200;
-		NumAvg = 1;
 		NumSkip = 1;
 		break;
 	case 6:
-		EPIDivide = 500;
-		NumAvg = 1;
+		EPIDivide = 13;
 		NumSkip = 1;
 		break;
 	case 7:
 		EPIDivide = 1000;
-		NumAvg = 1;
 		NumSkip = 1;
 		break;
 	case 8:
-		EPIDivide = 2500;
-		NumAvg = 1;
+		EPIDivide = 16;
 		NumSkip = 1;
 		break;
 	case 9:
 		EPIDivide = 6500;
-		NumAvg = 1;
 		NumSkip = 1;
 		break;
 	case 10:
 		EPIDivide = 6500;
-		NumAvg = 5;
 		NumSkip = 5;
 		break;
 	default:
 		EPIDivide = 10;
-		NumAvg = 1;
 		NumSkip = 1;
 		break;
 	}
 }
 
-void SetupTrigger(uint8_t Level, uint8_t Start_Position, uint8_t Mode){
+void SetupTrigger(uint16_t Level, uint8_t Start_Position, uint8_t Mode){
 
 	TriggerLevel = Level;
 	TriggerMode = Mode; // 0 - positive edge, 1 - negative edge
