@@ -48,14 +48,6 @@
 #define EPI_PORTM_PINS (GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3)
 
 
-
-/*// define epi port pins to be used
-#define EPI_PORTA_PINS (GPIO_PIN_6)
-#define EPI_PORTC_PINS (GPIO_PIN_7 | GPIO_PIN_6 | GPIO_PIN_5 | GPIO_PIN_4)
-#define EPI_PORTG_PINS (GPIO_PIN_0)
-#define EPI_PORTL_PINS (GPIO_PIN_4 | GPIO_PIN_3 | GPIO_PIN_2 | GPIO_PIN_1 | GPIO_PIN_0)
-#define EPI_PORTM_PINS (GPIO_PIN_3)*/
-
 // define ADC control pins
 #define PADC_Output_Mode (GPIO_PIN_2)
 #define PADC_CTRL_1 (GPIO_PIN_5)
@@ -80,7 +72,7 @@
 #define BCh1_Mult_A0	(GPIO_PIN_4)
 #define BCh1_Mult_A1	(GPIO_PIN_5)
 #define ACh2_Mult_A0	(GPIO_PIN_4)
-#define ACh2_Mult_A1	(GPIO_PIN_4)
+#define ACh2_Mult_A1	(GPIO_PIN_5)
 
 
 //*****************************************************************************
@@ -89,7 +81,7 @@
 //
 //*****************************************************************************
 #define MEM_BUFFER_SIZE         1024/2
-#define MaxSize					1024*8 // Must be multiple of MEM_BUFFER_SIZE
+#define MaxSize					1024*12 // Must be multiple of MEM_BUFFER_SIZE
 
 //*****************************************************************************
 //
@@ -98,7 +90,7 @@
 //*****************************************************************************
 static uint32_t *g_ui32DstBuf[MEM_BUFFER_SIZE];
 static uint32_t *g_ui32DstBuf2[MEM_BUFFER_SIZE];
-uint32_t values[MaxSize], values2[MEM_BUFFER_SIZE],
+uint32_t values[MaxSize], values2[MaxSize],
 inputs[MEM_BUFFER_SIZE], inputs2[MEM_BUFFER_SIZE], all_values[MaxSize];
 
 //*****************************************************************************
@@ -156,14 +148,15 @@ extern const uint8_t g_pui8Image[];
 extern const uint8_t g_pui9Image[];
 
 // global variables
-uint32_t totalsA[SERIES_LENGTH], averageA[SERIES_LENGTH];
+uint32_t totalsA[SERIES_LENGTH], totalsB[SERIES_LENGTH];
 uint16_t totalA, totalB;
 uint32_t i = 0, j = 0, f = 0, k = 0, m = 0, l = 0, EPIDivide = 5;
 uint16_t t= 0;
-uint16_t Amp1[3], Amp2[3], Freq1, Freq2, pixel_divider = 5, TriggerLevel = 1500, NumAvg = 20;
+uint16_t Amp1[3], Amp2[3], Freq1, Freq2, pixel_divider = 5, TriggerLevel[1] = {1500}, NumAvg = 20;
 uint32_t receive[24], oppreceive[24], total, CountSize = 1024, count = 0, pixel_total = 0, pixel_average;
-uint8_t pri, alt, TriggerStart = 0, Trigger = 0, GoThrough = 0, CaptureMode = 0, TriggerMode = 0, begin = 0;
-uint16_t NumSkip = 1, TriggerPosition = 0, old[SERIES_LENGTH], pixels[SERIES_LENGTH], midlevel;
+uint8_t pri, alt, TriggerStart = 0, Trigger = 0, GoThrough = 0, CaptureMode = 0, TriggerMode = 0, begin = 0, TriggerSource = 1;
+uint16_t NumSkip = 1, TriggerPosition = 0, old1[SERIES_LENGTH], old2[SERIES_LENGTH], pixels[SERIES_LENGTH], pixels2[SERIES_LENGTH], midlevel1;
+uint16_t midlevel1, midlevel2, level1 = 80, level2 = 160;
 uint32_t ui32Mode;
 uint32_t *EPISource;
 uint8_t below = 0, above = 0, clockout = 0, stop = 0;
@@ -242,7 +235,7 @@ tPushButtonWidget g_psBotButtons[];
 void setup(void);
 void SetupVoltageDivision(uint8_t Scale, uint8_t Channel);
 void SetupTimeDivision(uint8_t Scale);
-void SetupTrigger(uint16_t Level, uint8_t Start_Position, uint8_t Mode);
+void SetupTrigger(uint16_t Level, uint8_t Start_Position, uint8_t Mode, uint8_t Source);
 
 
 
@@ -515,7 +508,8 @@ void AddMagDivC1(tWidget *psWidget) {
 
 	SetupVoltageDivision(Mag1, 1);
 
-	midlevel = 2048/pixel_divider + 120;
+	midlevel1 = 2048/pixel_divider + level1;
+	midlevel2 = 2048/pixel_divider + level2;
 
 	//make it 25V
 	if (magVolDivC1[1] == 50 && magVolDivC1[2] == 48 && magVolDivC1[3] == 32)
@@ -560,7 +554,8 @@ void MinusMagDivC1(tWidget *psWidget) {
 
 	SetupVoltageDivision(Mag1, 1);
 
-	midlevel = 2048/pixel_divider + 120;
+	midlevel1 = 2048/pixel_divider + level1;
+	midlevel2 = 2048/pixel_divider + level2;
 
 	//25V to 20V
 	if (magVolDivC1[1] == 50 && magVolDivC1[2] == 53 && magVolDivC1[3] == 32) {
@@ -602,7 +597,8 @@ void AddMagDivC2(tWidget *psWidget) {
 
 	SetupVoltageDivision(Mag2, 2);
 
-	midlevel = 2048/pixel_divider + 120;
+	midlevel1 = 2048/pixel_divider + level1;
+	midlevel2 = 2048/pixel_divider + level2;
 
 	//make it 25V
 	if (magVolDivC2[1] == 50 && magVolDivC2[2] == 48 && magVolDivC2[3] == 32)
@@ -645,7 +641,8 @@ void MinusMagDivC2(tWidget *psWidget) {
 
 	SetupVoltageDivision(Mag2, 2);
 
-	midlevel = 2048/pixel_divider + 120;
+	midlevel1 = 2048/pixel_divider + level1;
+	midlevel2 = 2048/pixel_divider + level2;
 
 	//25V to 20V
 	if (magVolDivC2[1] == 50 && magVolDivC2[2] == 53 && magVolDivC2[3] == 32) {
@@ -906,14 +903,22 @@ void DWaveForm(tWidget *pWidgetR, tContext *psContext) {
 
 	for (x = 0; x < SERIES_LENGTH; x++) {
 		GrContextForegroundSet(&sContext, ClrBlack);
-		GrCircleFill(&sContext, x, old[x], 1);
+		GrCircleFill(&sContext, x, old1[x], 1);
+		GrCircleFill(&sContext, x, old2[x], 1);
 		GrContextForegroundSet(&sContext, ClrYellow);
-		if((midlevel - pixels[x] / pixel_divider) < 29)
-			GrCircleFill(&sContext, x, old[x] = 29, 1);
-		else if ((midlevel - pixels[x] / pixel_divider) > 212)
-			GrCircleFill(&sContext, x, old[x] = 212, 1);
+		if((midlevel2 - pixels2[x] / pixel_divider) < 29)
+			GrCircleFill(&sContext, x, old2[x] = 29, 1);
+		else if ((midlevel2 - pixels2[x] / pixel_divider) > 212)
+			GrCircleFill(&sContext, x, old2[x] = 212, 1);
 		else
-			GrCircleFill(&sContext, x, old[x] = midlevel - pixels[x] / pixel_divider, 1);
+			GrCircleFill(&sContext, x, old2[x] = midlevel2 - pixels2[x] / pixel_divider, 1);
+		GrContextForegroundSet(&sContext, ClrRed);
+		if((midlevel1 - pixels[x] / pixel_divider) < 29)
+			GrCircleFill(&sContext, x, old1[x] = 29, 1);
+		else if ((midlevel1 - pixels[x] / pixel_divider) > 212)
+			GrCircleFill(&sContext, x, old1[x] = 212, 1);
+		else
+			GrCircleFill(&sContext, x, old1[x] = midlevel1 - pixels[x] / pixel_divider, 1);
 
 	}
 	GrContextForegroundSet(&sContext, ClrWhite);
@@ -951,7 +956,7 @@ void TriggerFunction(tWidget *pWidget){
 void
 OnSliderChange(tWidget *psWidget, int32_t i32Value){
 
-	SetupTrigger((midlevel - (uint16_t) i32Value)*pixel_divider,0,0);
+	SetupTrigger((midlevel1 - (240 - (uint16_t) i32Value))*pixel_divider,0,0,1);
 
 
 //    static char pcCanvasText[5];
@@ -1085,11 +1090,6 @@ int main(void) {
 						}
 						else{
 
-							oppreceive[0] = !receive[0];
-							oppreceive[1] = !receive[1];
-							oppreceive[2] = !receive[2];
-							oppreceive[3] = !receive[3];
-
 							if(receive[0])
 								receive[0] = 0;
 							else
@@ -1152,32 +1152,120 @@ int main(void) {
 							values[f + k*MEM_BUFFER_SIZE] = totalA & 0b00000000000000000000111111111111;
 						}
 
-						totalB = receive[12]/8192 + 2*(receive[13]/16384) + 4*(receive[14]/32768)
-								 + 8*(receive[15]/65536) + 16*(receive[16]/131072) + 32*(receive[17]/262144)
-								 + 64*(receive[18]/524288) + 128*(receive[19]/1048576)
-								 + 256*(receive[20]/2097152) + 512*(receive[21]/4194304)
-								 + 1024*(receive[22]/8388608) + 2048*(receive[23]/16777216);
+						if(receive[23] == 0){
+
+							totalB = 2048 + (receive[12] + 2*receive[13] + 4*receive[14] + 8*receive[15]
+							         + 16*receive[16] + 32*receive[17] + 64*receive[18] + 128*receive[19]
+							         + 1*(256*receive[20] + 512*receive[21] + 1024*receive[22]));
+
+							values2[f + k*MEM_BUFFER_SIZE] = totalB & 0b00000000000000000000111111111111;
+						}
+						else{
+
+							if(receive[12])
+								receive[12] = 0;
+							else
+								receive[12] = 1;
+
+							if(receive[13])
+								receive[13] = 0;
+							else
+								receive[13] = 1;
+
+							if(receive[14])
+								receive[14] = 0;
+							else
+								receive[14] = 1;
+
+							if(receive[15])
+								receive[15] = 0;
+							else
+								receive[15] = 1;
+
+							if(receive[16])
+								receive[16] = 0;
+							else
+								receive[16] = 1;
+
+							if(receive[17])
+								receive[17] = 0;
+							else
+								receive[17] = 1;
+
+							if(receive[18])
+								receive[18] = 0;
+							else
+								receive[18] = 1;
+
+							if(receive[19])
+								receive[19] = 0;
+							else
+								receive[19] = 1;
+
+							if(receive[20])
+								receive[20] = 0;
+							else
+								receive[20] = 1;
+
+							if(receive[21])
+								receive[21] = 0;
+							else
+								receive[21] = 1;
+
+							if(receive[22])
+								receive[22] = 0;
+							else
+								receive[22] = 1;
+
+							totalB = 2048 - (1 + receive[12] + 2*receive[13] + 4*receive[14] + 8*receive[15]
+							         + 16*receive[16] + 32*receive[17] + 64*receive[18] + 128*receive[19]
+							         + 1*(256*receive[20] + 512*receive[21] + 1024*receive[22]));
+
+							values2[f + k*MEM_BUFFER_SIZE] = totalB & 0b00000000000000000000111111111111;
+						}
 
 
 						if(TriggerMode == 0){
-							if(values[f + k*MEM_BUFFER_SIZE] <= TriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel - 10))
-								below = 1;
+							if(TriggerSource == 1){
+								if(values[f + k*MEM_BUFFER_SIZE] <= TriggerLevel[0] && values[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel[0] - 10))
+									below = 1;
 
-							if(values[f + k*MEM_BUFFER_SIZE] >= TriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= (TriggerLevel + 10) && below == 1){
-								TriggerStart = 1;
-								Trigger = 1;
-								below = 0;
+								if(values[f + k*MEM_BUFFER_SIZE] >= TriggerLevel[0] && values[f + k*MEM_BUFFER_SIZE] <= (TriggerLevel[0] + 10) && below == 1){
+									TriggerStart = 1;
+									Trigger = 1;
+									below = 0;
+								}
 							}
+							else
+								if(values2[f + k*MEM_BUFFER_SIZE] <= TriggerLevel[0] && values2[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel[0] - 10))
+									below = 1;
+
+								if(values2[f + k*MEM_BUFFER_SIZE] >= TriggerLevel[0] && values2[f + k*MEM_BUFFER_SIZE] <= (TriggerLevel[0] + 10) && below == 1){
+									TriggerStart = 1;
+									Trigger = 1;
+									below = 0;
+								}
 						}
 						else if(TriggerMode == 1){
-							if(values[f + k*MEM_BUFFER_SIZE] >= TriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= (TriggerLevel + 10))
-								above = 1;
+							if(TriggerSource == 1){
+								if(values[f + k*MEM_BUFFER_SIZE] >= TriggerLevel[0] && values[f + k*MEM_BUFFER_SIZE] <= (TriggerLevel[0] + 10))
+									above = 1;
 
-							if(values[f + k*MEM_BUFFER_SIZE] <= TriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel - 10) && above == 1){
-								TriggerStart = 1;
-								Trigger = 1;
-								above = 0;
+								if(values[f + k*MEM_BUFFER_SIZE] <= TriggerLevel[0] && values[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel[0] - 10) && above == 1){
+									TriggerStart = 1;
+									Trigger = 1;
+									above = 0;
+								}
 							}
+							else
+								if(values2[f + k*MEM_BUFFER_SIZE] >= TriggerLevel[0] && values2[f + k*MEM_BUFFER_SIZE] <= (TriggerLevel[0] + 10))
+									above = 1;
+
+								if(values2[f + k*MEM_BUFFER_SIZE] <= TriggerLevel[0] && values2[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel[0] - 10) && above == 1){
+									TriggerStart = 1;
+									Trigger = 1;
+									above = 0;
+								}
 						}
 
 						if(TriggerStart == 1){
@@ -1200,11 +1288,14 @@ int main(void) {
 									j=0;
 									if(m < SERIES_LENGTH){
 										pixels[m] = values[f + k*MEM_BUFFER_SIZE];
+										pixels2[m] = values2[f + k*MEM_BUFFER_SIZE];
 										m++;
 									}
 									else{
 										Amp1[1] = 0;
 										Amp1[0] = 4097;
+										Amp2[1] = 0;
+										Amp2[0] = 4097;
 										for(i=0;i<SERIES_LENGTH;i++){
 											if(pixels[i] < Amp1[0]){
 												Amp1[0] = pixels[i];
@@ -1212,8 +1303,15 @@ int main(void) {
 											if(pixels[i] > Amp1[1]){
 												Amp1[1] = pixels[i];
 											}
+											if(pixels2[i] < Amp2[0]){
+												Amp2[0] = pixels2[i];
+											}
+											if(pixels2[i] > Amp2[1]){
+												Amp2[1] = pixels2[i];
+											}
 										}
 										Amp1[2] = Amp1[1] - Amp1[0];
+										Amp2[2] = Amp2[1] - Amp2[0];
 										m = 0;
 										begin = 0;
 										TriggerStart = 0;
@@ -1232,12 +1330,14 @@ int main(void) {
 								if(j<NumAvg){
 									if(m < SERIES_LENGTH){
 										totalsA[m] = totalsA[m]+ values[f + k*MEM_BUFFER_SIZE];
+										totalsB[m] = totalsB[m]+ values2[f + k*MEM_BUFFER_SIZE];
 										m++;
 									}
 									else{
 										j++;
 										m=0;
 										totalsA[m] = totalsA[m]+ values[f + k*MEM_BUFFER_SIZE];
+										totalsB[m] = totalsB[m]+ values2[f + k*MEM_BUFFER_SIZE];
 										m++;
 										TriggerStart = 0;
 									}
@@ -1248,10 +1348,18 @@ int main(void) {
 										pixels[i] = totalsA[i]/NumAvg;
 									}
 									for(i=0;i<SERIES_LENGTH;i++){
+										pixels2[i] = totalsB[i]/NumAvg;
+									}
+									for(i=0;i<SERIES_LENGTH;i++){
 										totalsA[i] = 0;
+									}
+									for(i=0;i<SERIES_LENGTH;i++){
+										totalsB[i] = 0;
 									}
 									Amp1[1] = 0;
 									Amp1[0] = 4097;
+									Amp2[1] = 0;
+									Amp2[0] = 4097;
 									for(i=0;i<SERIES_LENGTH;i++){
 										if(pixels[i] < Amp1[0]){
 											Amp1[0] = pixels[i];
@@ -1259,8 +1367,15 @@ int main(void) {
 										if(pixels[i] > Amp1[1]){
 											Amp1[1] = pixels[i];
 										}
+										if(pixels2[i] < Amp2[0]){
+											Amp2[0] = pixels2[i];
+										}
+										if(pixels2[i] > Amp2[1]){
+											Amp2[1] = pixels2[i];
+										}
 									}
 									Amp1[2] = Amp1[1] - Amp1[0];
+									Amp2[2] = Amp2[1] - Amp2[0];
 									m = 0;
 									begin = 0;
 									TriggerStart = 0;
@@ -1282,6 +1397,7 @@ int main(void) {
 					if(GoThrough >= 10){
 						for(i=SERIES_LENGTH;i>0;i--){
 							pixels[SERIES_LENGTH-i] = values[f + k*MEM_BUFFER_SIZE - i];
+							pixels2[SERIES_LENGTH-i] = values2[f + k*MEM_BUFFER_SIZE - i];
 						}
 					}
 
@@ -1417,34 +1533,119 @@ int main(void) {
 							values[f + k*MEM_BUFFER_SIZE] = totalA & 0b00000000000000000000111111111111;
 						}
 
-						totalB = receive[12]/8192 + 2*(receive[13]/16384) + 4*(receive[14]/32768)
-								 + 8*(receive[15]/65536) + 16*(receive[16]/131072) + 32*(receive[17]/262144)
-								 + 64*(receive[18]/524288) + 128*(receive[19]/1048576)
-								 + 256*(receive[20]/2097152) + 512*(receive[21]/4194304)
-								 + 1024*(receive[22]/8388608) + 2048*(receive[23]/16777216);
+						if(receive[23] == 0){
 
+							totalB = 2048 + (receive[12] + 2*receive[13] + 4*receive[14] + 8*receive[15]
+							         + 16*receive[16] + 32*receive[17] + 64*receive[18] + 128*receive[19]
+							         + 1*(256*receive[20] + 512*receive[21] + 1024*receive[22]));
 
+							values2[f + k*MEM_BUFFER_SIZE] = totalB & 0b00000000000000000000111111111111;
+						}
+						else{
 
+							if(receive[12])
+								receive[12] = 0;
+							else
+								receive[12] = 1;
+
+							if(receive[13])
+								receive[13] = 0;
+							else
+								receive[13] = 1;
+
+							if(receive[14])
+								receive[14] = 0;
+							else
+								receive[14] = 1;
+
+							if(receive[15])
+								receive[15] = 0;
+							else
+								receive[15] = 1;
+
+							if(receive[16])
+								receive[16] = 0;
+							else
+								receive[16] = 1;
+
+							if(receive[17])
+								receive[17] = 0;
+							else
+								receive[17] = 1;
+
+							if(receive[18])
+								receive[18] = 0;
+							else
+								receive[18] = 1;
+
+							if(receive[19])
+								receive[19] = 0;
+							else
+								receive[19] = 1;
+
+							if(receive[20])
+								receive[20] = 0;
+							else
+								receive[20] = 1;
+
+							if(receive[21])
+								receive[21] = 0;
+							else
+								receive[21] = 1;
+
+							if(receive[22])
+								receive[22] = 0;
+							else
+								receive[22] = 1;
+
+							totalB = 2048 - (1 + receive[12] + 2*receive[13] + 4*receive[14] + 8*receive[15]
+							         + 16*receive[16] + 32*receive[17] + 64*receive[18] + 128*receive[19]
+							         + 1*(256*receive[20] + 512*receive[21] + 1024*receive[22]));
+
+							values2[f + k*MEM_BUFFER_SIZE] = totalB & 0b00000000000000000000111111111111;
+						}
 
 						if(TriggerMode == 0){
-							if(values[f + k*MEM_BUFFER_SIZE] <= TriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel - 10))
-								below = 1;
+							if(TriggerSource == 1){
+								if(values[f + k*MEM_BUFFER_SIZE] <= TriggerLevel[0] && values[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel[0] - 10))
+									below = 1;
 
-							if(values[f + k*MEM_BUFFER_SIZE] >= TriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= (TriggerLevel + 10) && below == 1){
-								TriggerStart = 1;
-								Trigger = 1;
-								below = 0;
+								if(values[f + k*MEM_BUFFER_SIZE] >= TriggerLevel[0] && values[f + k*MEM_BUFFER_SIZE] <= (TriggerLevel[0] + 10) && below == 1){
+									TriggerStart = 1;
+									Trigger = 1;
+									below = 0;
+								}
 							}
+							else
+								if(values2[f + k*MEM_BUFFER_SIZE] <= TriggerLevel[0] && values2[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel[0] - 10))
+									below = 1;
+
+								if(values2[f + k*MEM_BUFFER_SIZE] >= TriggerLevel[0] && values2[f + k*MEM_BUFFER_SIZE] <= (TriggerLevel[0] + 10) && below == 1){
+									TriggerStart = 1;
+									Trigger = 1;
+									below = 0;
+								}
 						}
 						else if(TriggerMode == 1){
-							if(values[f + k*MEM_BUFFER_SIZE] >= TriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= (TriggerLevel + 10))
-								above = 1;
+							if(TriggerSource == 1){
+								if(values[f + k*MEM_BUFFER_SIZE] >= TriggerLevel[0] && values[f + k*MEM_BUFFER_SIZE] <= (TriggerLevel[0] + 10))
+									above = 1;
 
-							if(values[f + k*MEM_BUFFER_SIZE] <= TriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel - 10) && above == 1){
-								TriggerStart = 1;
-								Trigger = 1;
-								above = 0;
+								if(values[f + k*MEM_BUFFER_SIZE] <= TriggerLevel[0] && values[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel[0] - 10) && above == 1){
+									TriggerStart = 1;
+									Trigger = 1;
+									above = 0;
+								}
 							}
+							else
+								if(values2[f + k*MEM_BUFFER_SIZE] >= TriggerLevel[0] && values2[f + k*MEM_BUFFER_SIZE] <= (TriggerLevel[0] + 10))
+									above = 1;
+
+								if(values2[f + k*MEM_BUFFER_SIZE] <= TriggerLevel[0] && values2[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel[0] - 10) && above == 1){
+									TriggerStart = 1;
+									Trigger = 1;
+									above = 0;
+								}
 						}
 
 						if(TriggerStart == 1){
@@ -1467,11 +1668,14 @@ int main(void) {
 									j=0;
 									if(m < SERIES_LENGTH){
 										pixels[m] = values[f + k*MEM_BUFFER_SIZE];
+										pixels2[m] = values2[f + k*MEM_BUFFER_SIZE];
 										m++;
 									}
 									else{
 										Amp1[1] = 0;
 										Amp1[0] = 4097;
+										Amp2[1] = 0;
+										Amp2[0] = 4097;
 										for(i=0;i<SERIES_LENGTH;i++){
 											if(pixels[i] < Amp1[0]){
 												Amp1[0] = pixels[i];
@@ -1479,8 +1683,15 @@ int main(void) {
 											if(pixels[i] > Amp1[1]){
 												Amp1[1] = pixels[i];
 											}
+											if(pixels2[i] < Amp2[0]){
+												Amp2[0] = pixels2[i];
+											}
+											if(pixels2[i] > Amp2[1]){
+												Amp2[1] = pixels2[i];
+											}
 										}
 										Amp1[2] = Amp1[1] - Amp1[0];
+										Amp2[2] = Amp2[1] - Amp2[0];
 										m = 0;
 										begin = 0;
 										TriggerStart = 0;
@@ -1499,12 +1710,14 @@ int main(void) {
 								if(j<NumAvg){
 									if(m < SERIES_LENGTH){
 										totalsA[m] = totalsA[m]+ values[f + k*MEM_BUFFER_SIZE];
+										totalsB[m] = totalsB[m]+ values2[f + k*MEM_BUFFER_SIZE];
 										m++;
 									}
 									else{
 										j++;
 										m=0;
 										totalsA[m] = totalsA[m]+ values[f + k*MEM_BUFFER_SIZE];
+										totalsB[m] = totalsB[m]+ values2[f + k*MEM_BUFFER_SIZE];
 										m++;
 										TriggerStart = 0;
 									}
@@ -1515,10 +1728,18 @@ int main(void) {
 										pixels[i] = totalsA[i]/NumAvg;
 									}
 									for(i=0;i<SERIES_LENGTH;i++){
+										pixels2[i] = totalsB[i]/NumAvg;
+									}
+									for(i=0;i<SERIES_LENGTH;i++){
 										totalsA[i] = 0;
+									}
+									for(i=0;i<SERIES_LENGTH;i++){
+										totalsB[i] = 0;
 									}
 									Amp1[1] = 0;
 									Amp1[0] = 4097;
+									Amp2[1] = 0;
+									Amp2[0] = 4097;
 									for(i=0;i<SERIES_LENGTH;i++){
 										if(pixels[i] < Amp1[0]){
 											Amp1[0] = pixels[i];
@@ -1526,8 +1747,15 @@ int main(void) {
 										if(pixels[i] > Amp1[1]){
 											Amp1[1] = pixels[i];
 										}
+										if(pixels2[i] < Amp2[0]){
+											Amp2[0] = pixels2[i];
+										}
+										if(pixels2[i] > Amp2[1]){
+											Amp2[1] = pixels2[i];
+										}
 									}
 									Amp1[2] = Amp1[1] - Amp1[0];
+									Amp2[2] = Amp2[1] - Amp2[0];
 									m = 0;
 									begin = 0;
 									TriggerStart = 0;
@@ -1549,6 +1777,7 @@ int main(void) {
 					if(GoThrough >= 10){
 						for(i=SERIES_LENGTH;i>0;i--){
 							pixels[SERIES_LENGTH-i] = values[f + k*MEM_BUFFER_SIZE - i];
+							pixels2[SERIES_LENGTH-i] = values2[f + k*MEM_BUFFER_SIZE - i];
 						}
 					}
 
@@ -1559,8 +1788,6 @@ int main(void) {
 
 				else
 					k = 0;
-
-		//WidgetMessageQueueProcess();
 
 	}
 
@@ -1782,11 +2009,15 @@ void setup(void) {
 		g_ui32DstBuf2[f] = &inputs2[f];
 	}
 
-	midlevel = 2048/pixel_divider + 120;
+	midlevel1 = 2048/pixel_divider + level1;
+	midlevel2 = 2048/pixel_divider + level2;
 
 	// Give initial conditions for totals for averaging
 	for(i=0;i<SERIES_LENGTH;i++){
 		totalsA[i] = 0;
+	}
+	for(i=0;i<SERIES_LENGTH;i++){
+		totalsB[i] = 0;
 	}
 
 	// Enable FPU
@@ -1917,14 +2148,16 @@ void setup(void) {
 	GPIOPinTypeGPIOOutput(GPIO_PORTD_BASE, DCh2_DVGA_D2);
 	GPIOPinTypeGPIOOutput(GPIO_PORTM_BASE, MCh2_DVGA_D3);
 
+	GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_Mode,0);
+	GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_Mode,0);
 	GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
 	GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
 	GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
 	GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
-	GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,0);
-	GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,0);
-	GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
-	GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
+	GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
+	GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,ECh2_DVGA_D1);
+	GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
+	GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
 
 	// Select general purpose mode for EPI
 	EPIModeSet(EPI0_BASE, EPI_MODE_GENERAL);
@@ -1935,7 +2168,7 @@ void setup(void) {
 
 	// Set Timer A to have a period of one tenth the clock freq
 	ui32Period = ui32SysClkFreq / 2;
-	TimerLoadSet(TIMER0_BASE, TIMER_A, ui32Period / 8 - 1);
+	TimerLoadSet(TIMER0_BASE, TIMER_A, ui32Period / 5 - 1);
 
 	// Enable timer interrupt and set it to go off at Timer A timeouts
 	IntEnable(INT_TIMER0A);
@@ -2062,41 +2295,65 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,0);
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,0);
 			// DVGA
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,ECh2_DVGA_D1);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
 			break;
 		case 1:
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0, BCh1_Mult_A0);
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1, 0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0, ACh2_Mult_A0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,0);
 			// DVGA
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,0);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
 			break;
 		case 2:
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0, 0);
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1, BCh1_Mult_A1);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1, ACh2_Mult_A1);
 			// DVGA
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,0);
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,0);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
 			break;
 		case 3:
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0, BCh1_Mult_A0);
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1, BCh1_Mult_A1);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0, ACh2_Mult_A0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1, ACh2_Mult_A1);
 			// DVGA
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,ECh2_DVGA_D1);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
 			break;
 		case 4:
 			// DVGA
@@ -2104,6 +2361,10 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,ECh2_DVGA_D1);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
 			break;
 		case 5:
 			// DVGA
@@ -2111,6 +2372,10 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
 			break;
 		case 6:
 			// DVGA
@@ -2118,6 +2383,10 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
 			break;
 		case 7:
 			// DVGA
@@ -2125,6 +2394,10 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,0);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,ECh2_DVGA_D1);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
 			break;
 		case 8:
 			// DVGA
@@ -2132,6 +2405,10 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,0);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,ECh2_DVGA_D1);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
 			break;
 		case 9:
 			// DVGA
@@ -2139,6 +2416,10 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,0);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
 			break;
 		case 10:
 			// DVGA
@@ -2146,6 +2427,10 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,0);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
 			break;
 		default:
 			break;
@@ -2207,10 +2492,11 @@ void SetupTimeDivision(uint8_t Scale){
 	}
 }
 
-void SetupTrigger(uint16_t Level, uint8_t Start_Position, uint8_t Mode){
+void SetupTrigger(uint16_t Level, uint8_t Start_Position, uint8_t Mode, uint8_t Source){
 
-	TriggerLevel = Level;
+	TriggerLevel[0] = Level;
 	TriggerMode = Mode; // 0 - positive edge, 1 - negative edge
+	TriggerSource = Source;
 	TriggerPosition = Start_Position;
 	above = 0;
 	below = 0;
