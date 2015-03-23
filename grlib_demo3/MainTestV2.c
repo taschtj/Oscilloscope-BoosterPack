@@ -81,7 +81,7 @@
 //
 //*****************************************************************************
 #define MEM_BUFFER_SIZE         1024/2
-#define MaxSize					1024*12 // Must be multiple of MEM_BUFFER_SIZE
+#define MaxSize					1024*8 // Must be multiple of MEM_BUFFER_SIZE
 
 //*****************************************************************************
 //
@@ -90,8 +90,8 @@
 //*****************************************************************************
 static uint32_t *g_ui32DstBuf[MEM_BUFFER_SIZE];
 static uint32_t *g_ui32DstBuf2[MEM_BUFFER_SIZE];
-uint32_t values[MaxSize], values2[MaxSize],
-inputs[MEM_BUFFER_SIZE], inputs2[MEM_BUFFER_SIZE], all_values[MaxSize];
+uint16_t values[MaxSize], values2[MaxSize];
+uint32_t inputs[MEM_BUFFER_SIZE], inputs2[MEM_BUFFER_SIZE];
 
 //*****************************************************************************
 //
@@ -152,16 +152,17 @@ uint32_t totalsA[SERIES_LENGTH], totalsB[SERIES_LENGTH];
 uint16_t totalA, totalB;
 uint32_t i = 0, j = 0, f = 0, k = 0, m = 0, l = 0, EPIDivide = 5;
 uint16_t t= 0;
-uint16_t Amp1[3], Amp2[3], Freq1, Freq2, pixel_divider = 5, TriggerLevel[1] = {1500}, NumAvg = 20;
+uint16_t Amp1[3], Amp2[3], Freq1, Freq2, NumAvg = 10, *PTriggerLevel, TriggerLevel = 1800;
 uint32_t receive[24], oppreceive[24], total, CountSize = 1024, count = 0, pixel_total = 0, pixel_average;
 uint8_t pri, alt, TriggerStart = 0, Trigger = 0, GoThrough = 0, CaptureMode = 0, TriggerMode = 0, begin = 0, TriggerSource = 1;
-uint16_t NumSkip = 1, TriggerPosition = 0, old1[SERIES_LENGTH], old2[SERIES_LENGTH], pixels[SERIES_LENGTH], pixels2[SERIES_LENGTH], midlevel1;
+uint16_t NumSkip = 2, TriggerPosition = 0, old1[SERIES_LENGTH], old2[SERIES_LENGTH], pixels[SERIES_LENGTH], pixels2[SERIES_LENGTH], midlevel1;
 uint16_t midlevel1, midlevel2, level1 = 80, level2 = 160;
 uint32_t ui32Mode;
 uint32_t *EPISource;
-uint8_t below = 0, above = 0, clockout = 0, stop = 0;
+uint8_t below = 0, above = 0, clockout = 0, stop = 0, Ch1on = 1, Ch2on = 1;
 uint8_t Mag1 = 0, Mag2 = 0, Time = 0;
 uint8_t transfer_done[2] = {0,0};
+float pixel_divider1 = 5.461, pixel_divider2 = 5.461;
 
 extern const uint8_t g_pui8Image[];
 extern const uint8_t g_pui9Image[];
@@ -501,15 +502,15 @@ Container(g_sContainerVolMagnitudeC2, 0, 0, g_psRadioBtnVolMagC2,
                                  sizeof(g_psRadioBtnVolDiv0[0]))
 void AddMagDivC1(tWidget *psWidget) {
 
-	if(Mag1 == 10)
-		Mag1 = 10;
+	if(Mag1 == 13)
+		Mag1 = 13;
 	else
 		Mag1++;
 
 	SetupVoltageDivision(Mag1, 1);
 
-	midlevel1 = 2048/pixel_divider + level1;
-	midlevel2 = 2048/pixel_divider + level2;
+	midlevel1 = 2048/pixel_divider1 + level1;
+	midlevel2 = 2048/pixel_divider2 + level2;
 
 	//make it 25V
 	if (magVolDivC1[1] == 50 && magVolDivC1[2] == 48 && magVolDivC1[3] == 32)
@@ -554,8 +555,8 @@ void MinusMagDivC1(tWidget *psWidget) {
 
 	SetupVoltageDivision(Mag1, 1);
 
-	midlevel1 = 2048/pixel_divider + level1;
-	midlevel2 = 2048/pixel_divider + level2;
+	midlevel1 = 2048/pixel_divider1 + level1;
+	midlevel2 = 2048/pixel_divider2 + level2;
 
 	//25V to 20V
 	if (magVolDivC1[1] == 50 && magVolDivC1[2] == 53 && magVolDivC1[3] == 32) {
@@ -590,15 +591,15 @@ void MinusMagDivC1(tWidget *psWidget) {
 }
 void AddMagDivC2(tWidget *psWidget) {
 
-	if(Mag2 == 10)
-		Mag2 = 10;
+	if(Mag2 == 13)
+		Mag2 = 13;
 	else
 		Mag2++;
 
 	SetupVoltageDivision(Mag2, 2);
 
-	midlevel1 = 2048/pixel_divider + level1;
-	midlevel2 = 2048/pixel_divider + level2;
+	midlevel1 = 2048/pixel_divider1 + level1;
+	midlevel2 = 2048/pixel_divider2 + level2;
 
 	//make it 25V
 	if (magVolDivC2[1] == 50 && magVolDivC2[2] == 48 && magVolDivC2[3] == 32)
@@ -641,8 +642,8 @@ void MinusMagDivC2(tWidget *psWidget) {
 
 	SetupVoltageDivision(Mag2, 2);
 
-	midlevel1 = 2048/pixel_divider + level1;
-	midlevel2 = 2048/pixel_divider + level2;
+	midlevel1 = 2048/pixel_divider1 + level1;
+	midlevel2 = 2048/pixel_divider2 + level2;
 
 	//25V to 20V
 	if (magVolDivC2[1] == 50 && magVolDivC2[2] == 53 && magVolDivC2[3] == 32) {
@@ -680,8 +681,8 @@ void MinusMagDivC2(tWidget *psWidget) {
 
 void AddTimeDiv(tWidget *psWidget) {
 
-	if(Time == 10)
-		Time = 10;
+	if(Time == 28)
+		Time = 28;
 	else
 		Time++;
 
@@ -901,25 +902,42 @@ void DRadioMenu(tWidget *pWidgetR) {
 void DWaveForm(tWidget *pWidgetR, tContext *psContext) {
 ///////////////////////////////////////////////////////////////////////
 
-	for (x = 0; x < SERIES_LENGTH; x++) {
+	for (x = 1; x < SERIES_LENGTH; x++) {
 		GrContextForegroundSet(&sContext, ClrBlack);
-		GrCircleFill(&sContext, x, old1[x], 1);
-		GrCircleFill(&sContext, x, old2[x], 1);
-		GrContextForegroundSet(&sContext, ClrYellow);
-		if((midlevel2 - pixels2[x] / pixel_divider) < 29)
-			GrCircleFill(&sContext, x, old2[x] = 29, 1);
-		else if ((midlevel2 - pixels2[x] / pixel_divider) > 212)
-			GrCircleFill(&sContext, x, old2[x] = 212, 1);
-		else
-			GrCircleFill(&sContext, x, old2[x] = midlevel2 - pixels2[x] / pixel_divider, 1);
-		GrContextForegroundSet(&sContext, ClrRed);
-		if((midlevel1 - pixels[x] / pixel_divider) < 29)
-			GrCircleFill(&sContext, x, old1[x] = 29, 1);
-		else if ((midlevel1 - pixels[x] / pixel_divider) > 212)
-			GrCircleFill(&sContext, x, old1[x] = 212, 1);
-		else
-			GrCircleFill(&sContext, x, old1[x] = midlevel1 - pixels[x] / pixel_divider, 1);
-
+		//GrCircleFill(&sContext, x, old1[x-1], 1);
+		GrLineDraw(&sContext,x-1,old1[x-1],x,old1[x]);
+		GrLineDraw(&sContext,x-1,old2[x-1],x,old2[x]);
+		//GrCircleFill(&sContext, x, old2[x-1], 1);
+		if(Ch2on == 1){
+			GrContextForegroundSet(&sContext, ClrYellow);
+			if(stop == 1){
+				GrCircleFill(&sContext, x, old2[x], 1);
+			}
+			else{
+				if((midlevel2 - pixels2[x] / pixel_divider2) < 29)
+					GrCircleFill(&sContext, x, old2[x] = 29, 1);
+				else if ((midlevel2 - pixels2[x] / pixel_divider2) > 210)
+					GrCircleFill(&sContext, x, old2[x] = 210, 1);
+				else
+					//GrCircleFill(&sContext, x, old2[x] = midlevel2 - pixels2[x] / pixel_divider2, 1);
+					GrLineDraw(&sContext,x-1,old2[x-1]=midlevel2 - pixels2[x-1] / pixel_divider2,x,midlevel2 - pixels2[x] / pixel_divider2);
+			}
+		}
+		if(Ch1on == 1){
+			GrContextForegroundSet(&sContext, ClrRed);
+			if(stop == 1){
+				GrCircleFill(&sContext, x, old1[x],1);
+			}
+			else{
+				if((midlevel1 - pixels[x] / pixel_divider1) < 29)
+					GrCircleFill(&sContext, x, old1[x] = 29,1);
+				else if ((midlevel1 - pixels[x] / pixel_divider1) > 210)
+					GrCircleFill(&sContext, x, old1[x] = 210,1);
+				else
+					GrLineDraw(&sContext,x-1,old1[x-1]=midlevel1 - pixels[x-1] / pixel_divider1,x,midlevel1 - pixels[x] / pixel_divider1);
+					//GrCircleFill(&sContext, x, old1[x] = midlevel1 - pixels[x] / pixel_divider1,1);
+			}
+		}
 	}
 	GrContextForegroundSet(&sContext, ClrWhite);
 	GrCircleFill(&sContext, 160, 119, 3);
@@ -930,7 +948,7 @@ void DWaveForm(tWidget *pWidgetR, tContext *psContext) {
 			GrPixelDraw(&sContext, x, y);
 	}
 //change this for horizontal division
-	for (x = 0; x < 321; x += 32) {
+	for (x = 0; x < 321; x += 40) {
 		for (y = 29; y <= 210; y += 4)
 			GrPixelDraw(&sContext, x, y);
 	}
@@ -956,7 +974,7 @@ void TriggerFunction(tWidget *pWidget){
 void
 OnSliderChange(tWidget *psWidget, int32_t i32Value){
 
-	SetupTrigger((midlevel1 - (240 - (uint16_t) i32Value))*pixel_divider,0,0,1);
+	SetupTrigger((midlevel1 - (240 - (uint16_t) i32Value))*pixel_divider1,0,0,1);
 
 
 //    static char pcCanvasText[5];
@@ -1033,27 +1051,6 @@ int main(void) {
 		if (transfer_done[0] == 1) {
 				transfer_done[0] = 0;
 					for (f = 0; f < MEM_BUFFER_SIZE; f++) {
-						/*receive[0] = inputs[f] & 0b00000000000000000000000000010000;
-						receive[1] = inputs[f] & 0b00000000000000000000000000100000;
-						receive[2] = inputs[f] & 0b00000000000000000000000001000000;
-						receive[3] = inputs[f] & 0b00000000000000000000000010000000;
-						receive[4] = inputs[f] & 0b00000000000000000000000100000000;
-						receive[5] = inputs[f] & 0b00000000000000000000100000000000;
-						receive[6] = inputs[f] & 0b00000000000000000001000000000000;
-						receive[7] = inputs[f] & 0b00000000000000010000000000000000;
-						receive[8] = inputs[f] & 0b00000000000000100000000000000000;
-						receive[9] = inputs[f] & 0b00000000000001000000000000000000;
-						receive[10] = inputs[f] & 0b00000000000010000000000000000000;
-						receive[11] = inputs[f] & 0b00000100000000000000000000000000;
-						total = receive[0] / 16 + 2 * receive[1] / 32
-								+ 4 * receive[2] / 64 + 8 * receive[3] / 128
-								+ 16 * receive[4] / 256 + 32 * receive[5] / 2048
-								+ 64 * receive[6] / 4096 + 128 * receive[7] / 65536
-								+ 256 * receive[8] / 131072 + 512 * receive[9] / 262144
-								+ 1024 * receive[10] / 524288;
-						if (receive[11])
-							total = total + 2048;
-						*/
 
 						receive[0] = (inputs[f] & 0b00000000000000000000000000000001)/0b00000000000000000000000000000001;
 						receive[1] = (inputs[f] & 0b00000000000000000000000000000010)/0b00000000000000000000000000000010;
@@ -1227,20 +1224,20 @@ int main(void) {
 
 						if(TriggerMode == 0){
 							if(TriggerSource == 1){
-								if(values[f + k*MEM_BUFFER_SIZE] <= TriggerLevel[0] && values[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel[0] - 10))
+								if(values[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 5))
 									below = 1;
 
-								if(values[f + k*MEM_BUFFER_SIZE] >= TriggerLevel[0] && values[f + k*MEM_BUFFER_SIZE] <= (TriggerLevel[0] + 10) && below == 1){
+								if(values[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 5) && below == 1){
 									TriggerStart = 1;
 									Trigger = 1;
 									below = 0;
 								}
 							}
 							else
-								if(values2[f + k*MEM_BUFFER_SIZE] <= TriggerLevel[0] && values2[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel[0] - 10))
+								if(values2[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 5))
 									below = 1;
 
-								if(values2[f + k*MEM_BUFFER_SIZE] >= TriggerLevel[0] && values2[f + k*MEM_BUFFER_SIZE] <= (TriggerLevel[0] + 10) && below == 1){
+								if(values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 5) && below == 1){
 									TriggerStart = 1;
 									Trigger = 1;
 									below = 0;
@@ -1248,20 +1245,20 @@ int main(void) {
 						}
 						else if(TriggerMode == 1){
 							if(TriggerSource == 1){
-								if(values[f + k*MEM_BUFFER_SIZE] >= TriggerLevel[0] && values[f + k*MEM_BUFFER_SIZE] <= (TriggerLevel[0] + 10))
+								if(values[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 5))
 									above = 1;
 
-								if(values[f + k*MEM_BUFFER_SIZE] <= TriggerLevel[0] && values[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel[0] - 10) && above == 1){
+								if(values[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 5) && above == 1){
 									TriggerStart = 1;
 									Trigger = 1;
 									above = 0;
 								}
 							}
 							else
-								if(values2[f + k*MEM_BUFFER_SIZE] >= TriggerLevel[0] && values2[f + k*MEM_BUFFER_SIZE] <= (TriggerLevel[0] + 10))
+								if(values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 5))
 									above = 1;
 
-								if(values2[f + k*MEM_BUFFER_SIZE] <= TriggerLevel[0] && values2[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel[0] - 10) && above == 1){
+								if(values2[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 5) && above == 1){
 									TriggerStart = 1;
 									Trigger = 1;
 									above = 0;
@@ -1272,7 +1269,7 @@ int main(void) {
 							if(CaptureMode == 0){
 								/*if(begin == 0){
 									begin=1;
-									for(i=0;i<TriggerPosition*NumSkip;i=i+NumSkip){
+									for(i=0;i<TriggerPosition*(NumSkip+1);i=i+NumSkip+1){
 										if((int32_t) (f + k*MEM_BUFFER_SIZE - TriggerPosition + i) < 0){
 											pixels[i] = values[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i)];
 										}
@@ -1413,28 +1410,6 @@ int main(void) {
 				if (transfer_done[1] == 1) {
 					transfer_done[1] = 0;
 					for (f = 0; f < MEM_BUFFER_SIZE; f++) {
-						/*receive[0] = inputs2[f] & 0b00000000000000000000000000010000;
-						receive[1] = inputs2[f] & 0b00000000000000000000000000100000;
-						receive[2] = inputs2[f] & 0b00000000000000000000000001000000;
-						receive[3] = inputs2[f] & 0b00000000000000000000000010000000;
-						receive[4] = inputs2[f] & 0b00000000000000000000000100000000;
-						receive[5] = inputs2[f] & 0b00000000000000000000100000000000;
-						receive[6] = inputs2[f] & 0b00000000000000000001000000000000;
-						receive[7] = inputs2[f] & 0b00000000000000010000000000000000;
-						receive[8] = inputs2[f] & 0b00000000000000100000000000000000;
-						receive[9] = inputs2[f] & 0b00000000000001000000000000000000;
-						receive[10] = inputs2[f] & 0b00000000000010000000000000000000;
-						receive[11] = inputs2[f] & 0b00000100000000000000000000000000;
-						total = receive[0] / 16 + 2 * receive[1] / 32
-								+ 4 * receive[2] / 64 + 8 * receive[3] / 128
-								+ 16 * receive[4] / 256 + 32 * receive[5] / 2048
-								+ 64 * receive[6] / 4096 + 128 * receive[7] / 65536
-								+ 256 * receive[8] / 131072 + 512 * receive[9] / 262144
-								+ 1024 * receive[10] / 524288;
-						if (receive[11]) {
-							total = total + 2048;
-						}
-						*/
 
 						receive[0] = (inputs2[f] & 0b00000000000000000000000000000001)/0b00000000000000000000000000000001;
 						receive[1] = (inputs2[f] & 0b00000000000000000000000000000010)/0b00000000000000000000000000000010;
@@ -1607,20 +1582,20 @@ int main(void) {
 
 						if(TriggerMode == 0){
 							if(TriggerSource == 1){
-								if(values[f + k*MEM_BUFFER_SIZE] <= TriggerLevel[0] && values[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel[0] - 10))
+								if(values[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 5))
 									below = 1;
 
-								if(values[f + k*MEM_BUFFER_SIZE] >= TriggerLevel[0] && values[f + k*MEM_BUFFER_SIZE] <= (TriggerLevel[0] + 10) && below == 1){
+								if(values[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 5) && below == 1){
 									TriggerStart = 1;
 									Trigger = 1;
 									below = 0;
 								}
 							}
 							else
-								if(values2[f + k*MEM_BUFFER_SIZE] <= TriggerLevel[0] && values2[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel[0] - 10))
+								if(values2[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 5))
 									below = 1;
 
-								if(values2[f + k*MEM_BUFFER_SIZE] >= TriggerLevel[0] && values2[f + k*MEM_BUFFER_SIZE] <= (TriggerLevel[0] + 10) && below == 1){
+								if(values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 5) && below == 1){
 									TriggerStart = 1;
 									Trigger = 1;
 									below = 0;
@@ -1628,20 +1603,20 @@ int main(void) {
 						}
 						else if(TriggerMode == 1){
 							if(TriggerSource == 1){
-								if(values[f + k*MEM_BUFFER_SIZE] >= TriggerLevel[0] && values[f + k*MEM_BUFFER_SIZE] <= (TriggerLevel[0] + 10))
+								if(values[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 5))
 									above = 1;
 
-								if(values[f + k*MEM_BUFFER_SIZE] <= TriggerLevel[0] && values[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel[0] - 10) && above == 1){
+								if(values[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 5) && above == 1){
 									TriggerStart = 1;
 									Trigger = 1;
 									above = 0;
 								}
 							}
 							else
-								if(values2[f + k*MEM_BUFFER_SIZE] >= TriggerLevel[0] && values2[f + k*MEM_BUFFER_SIZE] <= (TriggerLevel[0] + 10))
+								if(values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 5))
 									above = 1;
 
-								if(values2[f + k*MEM_BUFFER_SIZE] <= TriggerLevel[0] && values2[f + k*MEM_BUFFER_SIZE] >= (TriggerLevel[0] - 10) && above == 1){
+								if(values2[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 5) && above == 1){
 									TriggerStart = 1;
 									Trigger = 1;
 									above = 0;
@@ -1652,7 +1627,7 @@ int main(void) {
 							if(CaptureMode == 0){
 								/*if(begin == 0){
 									begin=1;
-									for(i=0;i<TriggerPosition*NumSkip;i=i+NumSkip){
+									for(i=0;i<TriggerPosition*(NumSkip+1);i=i+NumSkip+1){
 										if((int32_t) (f + k*MEM_BUFFER_SIZE - TriggerPosition + i) < 0){
 											pixels[i] = values[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i)];
 										}
@@ -1788,6 +1763,15 @@ int main(void) {
 
 				else
 					k = 0;
+
+				// Issue paint request to the widgets.
+
+				WidgetPaint((tWidget *)&g_sWaveform);
+
+				//
+				// Process any messages in the widget message queue.
+				//
+				WidgetMessageQueueProcess();
 
 	}
 
@@ -2009,8 +1993,8 @@ void setup(void) {
 		g_ui32DstBuf2[f] = &inputs2[f];
 	}
 
-	midlevel1 = 2048/pixel_divider + level1;
-	midlevel2 = 2048/pixel_divider + level2;
+	midlevel1 = 2048/pixel_divider1 + level1;
+	midlevel2 = 2048/pixel_divider2 + level2;
 
 	// Give initial conditions for totals for averaging
 	for(i=0;i<SERIES_LENGTH;i++){
@@ -2019,6 +2003,8 @@ void setup(void) {
 	for(i=0;i<SERIES_LENGTH;i++){
 		totalsB[i] = 0;
 	}
+
+	PTriggerLevel = &TriggerLevel;
 
 	// Enable FPU
 	FPULazyStackingEnable();
@@ -2150,14 +2136,14 @@ void setup(void) {
 
 	GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_Mode,0);
 	GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_Mode,0);
-	GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
-	GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
-	GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
-	GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
-	GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
-	GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,ECh2_DVGA_D1);
-	GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
-	GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
+	GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,0);
+	GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
+	GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,0);
+	GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
+	GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,0);
+	GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,0);
+	GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
+	GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
 
 	// Select general purpose mode for EPI
 	EPIModeSet(EPI0_BASE, EPI_MODE_GENERAL);
@@ -2168,7 +2154,7 @@ void setup(void) {
 
 	// Set Timer A to have a period of one tenth the clock freq
 	ui32Period = ui32SysClkFreq / 2;
-	TimerLoadSet(TIMER0_BASE, TIMER_A, ui32Period / 5 - 1);
+	TimerLoadSet(TIMER0_BASE, TIMER_A, 2*(ui32Period)/3 - 1);
 
 	// Enable timer interrupt and set it to go off at Timer A timeouts
 	IntEnable(INT_TIMER0A);
@@ -2217,13 +2203,12 @@ void Timer0IntHandler(void) {
 
 	// Issue paint request to the widgets.
 
-	if(stop == 0)
-		WidgetPaint((tWidget *)&g_sWaveform);
+	//WidgetPaint((tWidget *)&g_sWaveform);
 
 	//
 	// Process any messages in the widget message queue.
 	//
-	WidgetMessageQueueProcess();
+	//WidgetMessageQueueProcess();
 
 }
 
@@ -2232,71 +2217,349 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 
 	if(Channel == 1){
 		switch (Scale) {
-		case 0:
-			pixel_divider = 5;
-			// Smallest Channel 1
-			/*GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,0);
+		case 0: // 2mV/div
+			pixel_divider1 = 5.461;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,0);
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,0);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D0, 0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D1, 0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2, 0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D3, 0);*/
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,0);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
 			break;
-		case 1:
-			pixel_divider = 20;
+		case 1: // 5mV/div
+			pixel_divider1 = 13.653;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,0);
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,0);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,0);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
 			break;
-		case 2:
-			pixel_divider = 30;
+		case 2: // 10mV/div
+			pixel_divider1 = 21.639;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,0);
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,0);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,0);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
 			break;
-		case 3:
-			pixel_divider = 40;
+		case 3: // 20mV/div
+			pixel_divider1 = 21.69;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,0);
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,0);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
 			break;
-		case 4:
-			pixel_divider = 50;
+		case 4: // 50mV/div
+			pixel_divider1 = 21.586;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,0);
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,0);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,0);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
 			break;
-		case 5:
-			pixel_divider = 60;
+		case 5: // 100mV/div
+			pixel_divider1 = 21.586;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,0);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,0);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
 			break;
-		case 6:
-			pixel_divider = 70;
+		case 6: // 200mV/div
+			pixel_divider1 = 21.586;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,0);
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,0);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
 			break;
-		case 7:
-			pixel_divider = 80;
+		case 7: // 500mV/div
+			pixel_divider1 = 21.586;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,0);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
 			break;
-		case 8:
-			pixel_divider = 90;
+		case 8: // 1V/div
+			pixel_divider1 = 27.307;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
 			break;
-		case 9:
-			pixel_divider = 100;
+		case 9: // 2V/div
+			pixel_divider1 = 54.613;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
 			break;
-		case 10:
-			pixel_divider = 110;
-			//Largest Channel 1
-			/*GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0, BCh1_Mult_A0);
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1, BCh1_Mult_A1);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D0, DCh1_DVGA_D0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D1, ECh1_DVGA_D1);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2, ECh1_DVGA_D2);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D3, ECh1_DVGA_D3);*/
+		case 10: // 5V/div
+			pixel_divider1 = 136.533;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
 			break;
+		case 11: // 10V/div
+			// Multiplexer
+			pixel_divider1 = 273.067;
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
+			break;
+		case 12: // 20V/div
+			// Multiplexer
+			pixel_divider1 = 546.133;
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
+			break;
+		case 13: // 25V/div
+			// Multiplexer
+			pixel_divider1 = 341.33;
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
 		default:
-			/*GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0, 0);
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1, BCh1_Mult_A1);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D0, 0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D1, 0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2, ECh1_DVGA_D2);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D3, ECh1_DVGA_D3);*/
+			// Multiplexer
+			pixel_divider1 = 341.33;
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
 			break;
 		}
 	}
 	else if(Channel == 2){
 		switch (Scale) {
-		case 0:
+		case 0: // 2mV/div
+			pixel_divider2 = 5.461;
 			// Multiplexer
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,0);
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,0);
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,0);
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,0);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
+			break;
+		case 1: // 5mV/div
+			pixel_divider2 = 13.653;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,0);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
+			break;
+		case 2: // 10mV/div
+			pixel_divider2 = 21.639;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,0);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
+			break;
+		case 3: // 20mV/div
+			pixel_divider2 = 21.69;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,0);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
+			break;
+		case 4: // 50mV/div
+			pixel_divider2 = 21.586;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,0);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
+			break;
+		case 5: // 100mV/div
+			pixel_divider2 = 21.586;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,0);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
+			break;
+		case 6: // 200mV/div
+			pixel_divider2 = 21.586;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
+			break;
+		case 7: // 500mV/div
+			pixel_divider2 = 21.586;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
+			break;
+		case 8: // 1V/div
+			pixel_divider2 = 27.307;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,ECh2_DVGA_D1);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
+			break;
+		case 9: // 2V/div
+			pixel_divider2 = 54.613;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,ECh2_DVGA_D1);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
+			break;
+		case 10: // 5V/div
+			pixel_divider2 = 136.533;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,ECh2_DVGA_D1);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
+			break;
+		case 11: // 10V/div
+			pixel_divider2 = 273.067;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,ECh2_DVGA_D1);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
+			break;
+		case 12: // 20V/div
+			pixel_divider2 = 546.133;
+
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,ECh2_DVGA_D1);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
+			break;
+		case 13: // 25V/div
+			pixel_divider1 = 341.33;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,ECh2_DVGA_D1);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
+		default:
+			pixel_divider1 = 341.33;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,ECh2_DVGA_D1);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
+			break;
+		}
+
+		// Testing cases
+		/*switch (Scale) {
+		case 0:
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
 			// DVGA
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
@@ -2309,10 +2572,10 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			break;
 		case 1:
 			// Multiplexer
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0, BCh1_Mult_A0);
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1, 0);
-			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0, ACh2_Mult_A0);
-			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,0);
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0, 0);
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1, BCh1_Mult_A1);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0, 0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1, ACh2_Mult_A1);
 			// DVGA
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
@@ -2325,10 +2588,10 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			break;
 		case 2:
 			// Multiplexer
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0, 0);
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1, BCh1_Mult_A1);
-			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,0);
-			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1, ACh2_Mult_A1);
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0, BCh1_Mult_A0);
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1, 0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1, 0);
 			// DVGA
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,0);
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
@@ -2341,10 +2604,10 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			break;
 		case 3:
 			// Multiplexer
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0, BCh1_Mult_A0);
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1, BCh1_Mult_A1);
-			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0, ACh2_Mult_A0);
-			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1, ACh2_Mult_A1);
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0, 0);
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1, 0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0, 0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1, 0);
 			// DVGA
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
@@ -2434,67 +2697,134 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			break;
 		default:
 			break;
-		}
+		}*/
 	}
 }
 
 void SetupTimeDivision(uint8_t Scale){
 
 	switch(Scale){
-	case 0:
+	case 0: // 20ns/div
 		EPIDivide = 5;
-		NumSkip = 1;
 		break;
-	case 1:
+	case 1: // 50ns/div
 		EPIDivide = 10;
-		NumSkip = 1;
 		break;
-	case 2:
+	case 2: // 100ns/div
 		EPIDivide = 35;
-		NumSkip = 1;
 		break;
-	case 3:
+	case 3: // 200ns/div
 		EPIDivide = 75;
-		NumSkip = 1;
 		break;
-	case 4:
+	case 4: // 500ns/div
 		EPIDivide = 100;
-		NumSkip = 1;
 		break;
-	case 5:
-		EPIDivide = 200;
-		NumSkip = 1;
+	case 5: // 1us/div
+		EPIDivide = 0;
+		NumSkip = 2;
 		break;
-	case 6:
-		EPIDivide = 13;
-		NumSkip = 1;
+	case 6: // 2us/div
+		EPIDivide = 4;
+		NumSkip = 0;
 		break;
-	case 7:
-		EPIDivide = 1000;
-		NumSkip = 1;
+	case 7: // 5us/div
+		EPIDivide = 0;
+		NumSkip = 14;
 		break;
-	case 8:
-		EPIDivide = 16;
-		NumSkip = 1;
+	case 8: // 10us/div
+		EPIDivide = 8;
+		NumSkip = 2;
 		break;
-	case 9:
-		EPIDivide = 6500;
-		NumSkip = 1;
+	case 9: // 20us/div
+		EPIDivide = 58;
+		NumSkip = 0;
 		break;
-	case 10:
-		EPIDivide = 6500;
-		NumSkip = 5;
+	case 10: // 50us/div
+		EPIDivide = 148;
+		NumSkip = 0;
+		break;
+	case 11: // 100us/div
+		EPIDivide = 298;
+		NumSkip = 0;
+		break;
+	case 12: // 200us/div
+		EPIDivide = 598;
+		NumSkip = 0;
+		break;
+	case 13: // 500us/div
+		EPIDivide = 1498;
+		NumSkip = 0;
+		break;
+	case 14: // 1ms/div
+		EPIDivide = 2998;
+		NumSkip = 0;
+		break;
+	case 15: // 2ms/div
+		EPIDivide = 5998;
+		NumSkip = 0;
+		break;
+	case 16: // 5ms/div
+		EPIDivide = 14998;
+		NumSkip = 0;
+		break;
+	case 17: // 10ms/div
+		EPIDivide = 29998;
+		NumSkip = 0;
+		break;
+	case 18: // 20ms/div
+		EPIDivide = 59998;
+		NumSkip = 0;
+		break;
+	case 19: // 50ms/div
+		EPIDivide = 49998;
+		NumSkip = 2;
+		break;
+	case 20: // 100ms/div
+		EPIDivide = 59998;
+		NumSkip = 4;
+		break;
+	case 21: // 200ms/div
+		EPIDivide = 59998;
+		NumSkip = 9;
+		break;
+	case 22: // 500ms/div
+		EPIDivide = 59998;
+		NumSkip = 19;
+		break;
+	case 23: // 1s/div
+		EPIDivide = 59998;
+		NumSkip = 49;
+		break;
+	case 24: // 2s/div
+		EPIDivide = 59998;
+		NumSkip = 99;
+		break;
+	case 25: // 5s/div
+		EPIDivide = 59998;
+		NumSkip = 249;
+		break;
+	case 26: // 10s/div
+		EPIDivide = 59998;
+		NumSkip = 499;
+		break;
+	case 27: // 20s/div
+		EPIDivide = 59998;
+		NumSkip = 1599;
+		break;
+	case 28: // 50s/div
+		EPIDivide = 59998;
+		NumSkip = 2499;
 		break;
 	default:
-		EPIDivide = 10;
-		NumSkip = 1;
+		EPIDivide = 2998;
+		NumSkip = 0;
 		break;
 	}
 }
 
 void SetupTrigger(uint16_t Level, uint8_t Start_Position, uint8_t Mode, uint8_t Source){
 
-	TriggerLevel[0] = Level;
+	TriggerLevel = Level;
 	TriggerMode = Mode; // 0 - positive edge, 1 - negative edge
 	TriggerSource = Source;
 	TriggerPosition = Start_Position;
