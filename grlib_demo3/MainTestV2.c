@@ -183,6 +183,7 @@ extern tPushButtonWidget g_sPushBtnMinusC2;
 extern tPushButtonWidget g_sPushBtnAddTime;
 extern tPushButtonWidget g_sPushBtnMinusTime;
 extern tContainerWidget g_sContainerMenu;
+extern tContainerWidget g_sContainerChannels;
 extern tContainerWidget g_sContainerFreMagnitudeC1;
 extern tContainerWidget g_sContainerFreMagnitudeC2;
 extern tContainerWidget g_sContainerVolMagnitudeC1;
@@ -209,6 +210,8 @@ char *tempTimVolDivC1;
 char timVolDivC1[] = { 32, 50, 48, 110, 115, 47, 100, 105, 118, 0 };
 void ClrScreen(void);
 void DRadioMenu(tWidget *pWidgetR);
+void DRadioChannels(tWidget *pWidgetR);
+void ChannelSelectRadioBtns(tWidget *psWidget, uint32_t bSelected);
 void DRadioFreMagnitudeC1(tWidget *pWidgetR);
 void DRadioFreMagnitudeC2(tWidget *pWidgetR);
 void DRadioVolMagnitudeC1(tWidget *pWidgetR);
@@ -310,7 +313,7 @@ tPushButtonWidget g_psTopButtons[] =
 										52, 28,
 										(PB_STYLE_OUTLINE | PB_STYLE_TEXT_OPAQUE | PB_STYLE_TEXT | PB_STYLE_FILL),
 										ClrGray, ClrWhite, ClrWhite, ClrWhite,
-										g_psFontCm16, "Cursors", 0, 0, 0, 0, 0),
+										g_psFontCm12, "Channels", 0, 0, 0, 0, DRadioChannels),
 
 								RectangularButtonStruct(&g_sTop, 0, 0,
 										&g_sKentec320x240x16_SSD2119, 265, 0,
@@ -410,6 +413,30 @@ tPushButtonWidget g_psBotButtons[] =
 										g_psFontCmss14, "Run/Stop", 0, 0, 0, 0,
 										RunStop) };
 ///////////////////////////////////////////////////////////////
+//RectangularButtonStruct(&g_sTop,
+//		g_psTopButtons + 5, 0,
+//		&g_sKentec320x240x16_SSD2119, 212, 0,
+//		52, 28,
+//		(PB_STYLE_OUTLINE | PB_STYLE_TEXT_OPAQUE | PB_STYLE_TEXT | PB_STYLE_FILL),
+//		ClrGray, ClrWhite, ClrWhite, ClrWhite,
+//		g_psFontCm12, "Channels", 0, 0, 0, 0, 0),
+
+tRadioButtonWidget g_psRadioBtnChannels[] = {
+RadioButtonStruct(&g_sContainerChannels, g_psRadioBtnChannels + 1, 0,
+		&g_sKentec320x240x16_SSD2119, 212, 30, 48, 20, RB_STYLE_TEXT,
+		10, ClrBlack, ClrWhite, ClrRed, g_psFontCmss14, "  1", 0,
+		ChannelSelectRadioBtns),
+RadioButtonStruct(&g_sContainerChannels, g_psRadioBtnChannels + 2, 0,
+		&g_sKentec320x240x16_SSD2119, 212, 51, 48, 20, RB_STYLE_TEXT,
+		10, ClrBlack, ClrWhite, ClrYellow, g_psFontCmss14, "  2", 0,
+		ChannelSelectRadioBtns),
+RadioButtonStruct(&g_sContainerChannels, 0, 0,
+		&g_sKentec320x240x16_SSD2119, 212, 71, 48, 20, RB_STYLE_TEXT,
+		10, ClrBlack, ClrWhite, ClrRed, g_psFontCmss14, "1 & 2", 0, ChannelSelectRadioBtns)};
+#define NUM_RADIO_BUTTONS_Channels      (sizeof(g_psRadioBtnChannels) /   \
+                                 sizeof(g_psRadioBtnChannels[0]))
+
+
 ///Radio Buttons for the menu//////////////////////////////////////////////
 tRadioButtonWidget g_psRadioBtnMenu[] = {
 RadioButtonStruct(&g_sContainerMenu, g_psRadioBtnMenu + 1, 0,
@@ -477,6 +504,11 @@ RadioButtonStruct(&g_sContainerVolMagnitudeC2, 0, 0,
 
 };
 //////////////////////////////////////////////////////////////////////////////////
+Container(g_sContainerChannels, 0, 0, g_psRadioBtnChannels,
+		&g_sKentec320x240x16_SSD2119, 212, 28, 52, 75,
+		(CTR_STYLE_OUTLINE |CTR_STYLE_FILL ), ClrBlack, ClrWhite, ClrRed,
+		g_psFontCm14, 0);
+
 Container(g_sContainerMenu, 0, 0, g_psRadioBtnMenu,
 		&g_sKentec320x240x16_SSD2119, 265, 28, 52, 115,
 		(CTR_STYLE_OUTLINE |CTR_STYLE_FILL ), ClrBlack, ClrWhite, ClrRed,
@@ -888,6 +920,37 @@ void DRadioVolMagnitudeC2(tWidget *pWidgetR) {
 	}
 
 }
+void DRadioChannels(tWidget *pWidgetR){
+	ButtonTF = !ButtonTF;
+	if (ButtonTF) {
+		WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sContainerChannels);
+			WidgetPaint((tWidget * )&g_sContainerChannels);
+	}
+	else {
+		ClrMyWidget();
+	}
+}
+void ChannelSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
+	  uint32_t ui32Idx;
+	  for(ui32Idx = 0; ui32Idx < NUM_RADIO_BUTTONS_Channels; ui32Idx++)
+	  {
+	      if(psWidget == (tWidget *)(g_psRadioBtnChannels + ui32Idx))
+	      {
+	          break;
+	      }
+	  }
+	  if(ui32Idx==0){
+
+	  }
+	  else if(ui32Idx==1){
+
+	  }
+	  else{
+
+	  }
+}
+
+
 void DRadioMenu(tWidget *pWidgetR) {
 	ButtonTF = !ButtonTF;
 	if (ButtonTF) {
@@ -1018,6 +1081,7 @@ int main(void) {
 	ui32SysClkFreq = SysCtlClockFreqSet((SYSCTL_XTAL_25MHZ |
 	SYSCTL_OSC_MAIN | SYSCTL_USE_PLL |
 	SYSCTL_CFG_VCO_480), 120000000);
+
 	tempMagVolDivC1 = magVolDivC1 + 2;
 	tempMagVolDivC2 = magVolDivC2 + 2;
 	tempTimVolDivC1 = timVolDivC1 + 1;
@@ -1045,7 +1109,7 @@ int main(void) {
 	WidgetPaint(WIDGET_ROOT);
 
 	setup();
-
+    WidgetPaint(WIDGET_ROOT);
 	while (1) {
 
 		if (transfer_done[0] == 1) {
@@ -1789,6 +1853,7 @@ void ClrScreen() {
 
 //Clean all the widget running and repaint BackGround and Waveform
 void ClrMyWidget(){
+	WidgetRemove((tWidget *) &g_sContainerChannels);
 	WidgetRemove((tWidget *) &g_sContainerMenu);
 	WidgetRemove((tWidget *) &g_sContainerFreMagnitudeC1);
 	WidgetRemove((tWidget *) &g_sContainerFreMagnitudeC2);
