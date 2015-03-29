@@ -82,6 +82,7 @@
 //*****************************************************************************
 #define MEM_BUFFER_SIZE         1024/2
 #define MaxSize					1024*12 // Must be multiple of MEM_BUFFER_SIZE
+#define TimeAvg					320
 
 //*****************************************************************************
 //
@@ -150,12 +151,18 @@ extern const uint8_t g_pui9Image[];
 // global variables
 uint32_t totalsA[SERIES_LENGTH], totalsB[SERIES_LENGTH];
 uint16_t totalA, totalB;
-uint32_t i = 0, j = 0, f = 0, k = 0, m = 0, l = 0, EPIDivide = 5;
-uint16_t t= 0;
-uint16_t Amp1[4], Amp2[4], Freq1, Freq2, NumAvg = 8, *PTriggerLevel, TriggerLevel = 1800;
+uint16_t l1 = 0, l2 = 0;
+uint32_t i = 0, j = 0, f = 0, k = 0, m = 0, EPIDivide = 5;
+uint16_t freqref1 = 0, t1[TimeAvg], freqref2 = 0, t2[TimeAvg];
+uint8_t freqstart2 = 0, freqstop2 = 0, freqstart1 = 0, freqstop1 = 0;
+float t2Avg, t1Avg;
+uint32_t totalt1 = 0, totalt2 = 0;
+uint16_t NumAvgt1 = 0, NumAvgt2 = 0;
+uint16_t Amp1[4], Amp2[4], NumAvg = 8, *PTriggerLevel, TriggerLevel = 1800;
+uint32_t *pFreq1, *pFreq2, Freq1 = 0, Freq2 = 0;
 uint32_t receive[24], oppreceive[24], total, CountSize = 1024, count = 0, pixel_total = 0, pixel_average;
 uint8_t pri, alt, TriggerStart = 0, Trigger = 0, GoThrough = 0, CaptureMode = 0, TriggerMode = 0, begin = 0, TriggerSource = 1;
-uint16_t NumSkip = 2, TriggerPosition = 0, old1[SERIES_LENGTH], old2[SERIES_LENGTH], pixels[SERIES_LENGTH], pixels2[SERIES_LENGTH], midlevel1;
+uint16_t NumSkip = 2, TriggerPosition = 160, old1[SERIES_LENGTH], old2[SERIES_LENGTH], pixels[SERIES_LENGTH], pixels2[SERIES_LENGTH], midlevel1;
 uint16_t midlevel1, midlevel2, level1 = 80, level2 = 160;
 uint32_t ui32Mode;
 int *EPISource;
@@ -164,8 +171,9 @@ uint8_t Mag1 = 0, Mag2 = 0, Time = 0, minusbelow1 = 0, minusbelow2 = 0, minusabo
 uint8_t outbelow1 = 0, outbelow2 = 0, outabove1 = 0, outabove2 = 0;
 uint8_t transfer_done[2] = {0,0}, stopped = 0;
 float pixel_divider1 = 5.461, pixel_divider2 = 5.461;
-float mvpixel[14];
+float mvpixel[14], secpixel[29];
 char MagDisplay1[7], MagDisplay2[7];
+char FreqDisplay1[9], FreqDisplay2[9];
 
 extern const uint8_t g_pui8Image[];
 extern const uint8_t g_pui9Image[];
@@ -234,6 +242,7 @@ double ASCtoDouble(char t[]);
 void TriggerFunction(tWidget *pWidget);
 void OnSliderChange(tWidget *psWidget, int32_t i32Value);
 void RunStop(tWidget *psWidget);
+void UpdateMeasurements(void);
 
 tPushButtonWidget g_psTopButtons[];
 tPushButtonWidget g_psBotButtons[];
@@ -378,7 +387,7 @@ tPushButtonWidget g_psBotButtons[] =
 										52, 28,
 										(PB_STYLE_OUTLINE | PB_STYLE_TEXT_OPAQUE | PB_STYLE_TEXT | PB_STYLE_FILL),
 										ClrGray, ClrWhite, ClrWhite, ClrRed,
-										g_psFontCm16, ("Hz"), 0, 0, 0, 0,
+										g_psFontCm12, ("Hz"), 0, 0, 0, 0,
 										DRadioFreMagnitudeC1),
 								RectangularButtonStruct(&g_sBottom,
 										g_psBotButtons + 2, 0,
@@ -386,7 +395,7 @@ tPushButtonWidget g_psBotButtons[] =
 										52, 28,
 										(PB_STYLE_OUTLINE | PB_STYLE_TEXT_OPAQUE | PB_STYLE_TEXT | PB_STYLE_FILL),
 										ClrGray, ClrWhite, ClrWhite, ClrYellow,
-										g_psFontCm16, "Hz", 0, 0, 0, 0, DRadioFreMagnitudeC2),
+										g_psFontCm12, "Hz", 0, 0, 0, 0, DRadioFreMagnitudeC2),
 								RectangularButtonStruct(&g_sBottom,
 										g_psBotButtons + 3, 0,
 										&g_sKentec320x240x16_SSD2119, 106, 212,
@@ -1520,44 +1529,28 @@ int main(void) {
 
 						if(TriggerMode == 0){
 							if(TriggerSource == 1){
-								if(values[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 2))
-									below = 1;
-
-								if(values[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 2) && below == 1){
+								if(values[f + k*MEM_BUFFER_SIZE-1] <= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel){
 									TriggerStart = 1;
 									Trigger = 1;
-									below = 0;
 								}
 							}
 							else
-								if(values2[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 2))
-									below = 1;
-
-								if(values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 2) && below == 1){
+								if(values2[f + k*MEM_BUFFER_SIZE-1] <= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel){
 									TriggerStart = 1;
 									Trigger = 1;
-									below = 0;
 								}
 						}
 						else if(TriggerMode == 1){
 							if(TriggerSource == 1){
-								if(values[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 2))
-									above = 1;
-
-								if(values[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 2) && above == 1){
+								if(values[f + k*MEM_BUFFER_SIZE-1] >= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel){
 									TriggerStart = 1;
 									Trigger = 1;
-									above = 0;
 								}
 							}
 							else
-								if(values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 2))
-									above = 1;
-
-								if(values2[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 2) && above == 1){
+								if(values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel){
 									TriggerStart = 1;
 									Trigger = 1;
-									above = 0;
 								}
 						}
 
@@ -1565,12 +1558,12 @@ int main(void) {
 							if(CaptureMode == 0){
 								if(begin == 0){
 									begin=1;
-									for(i=0;i<TriggerPosition*(NumSkip+1);i=i+NumSkip+1){
-										if((int32_t) (f + k*MEM_BUFFER_SIZE - TriggerPosition + i) < 0){
-											pixels[i] = values[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i)];
+									for(i=0;i<TriggerPosition*(NumSkip+1);i++){
+										if((int32_t) (f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1)) < 0){
+											pixels[i] = values[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1))];
 										}
 										else{
-											pixels[i] = values[f + k*MEM_BUFFER_SIZE - TriggerPosition + i];
+											pixels[i] = values[f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1)];
 										}
 									}
 								}
@@ -1585,114 +1578,7 @@ int main(void) {
 										m++;
 									}
 									else{
-										// Determine Max and Min values then evaluate difference between them
-										Amp1[1] = 0;
-										Amp1[0] = 4097;
-										Amp2[1] = 0;
-										Amp2[0] = 4097;
-										for(i=0;i<SERIES_LENGTH;i++){
-											if(pixels[i] < Amp1[0]){
-												Amp1[0] = pixels[i];
-											}
-											if(pixels[i] > Amp1[1]){
-												Amp1[1] = pixels[i];
-											}
-											if(pixels2[i] < Amp2[0]){
-												Amp2[0] = pixels2[i];
-											}
-											if(pixels2[i] > Amp2[1]){
-												Amp2[1] = pixels2[i];
-											}
-										}
-										Amp1[2] = Amp1[1] - Amp1[0];
-										Amp2[2] = Amp2[1] - Amp2[0];
-										if(Mag1 > 2){
-											Amp1[3] = (Amp1[2]/pixel_divider1)*mvpixel[Mag1];
-										}
-										else{
-											Amp1[3] = (Amp1[2]/pixel_divider1)/mvpixel[Mag1];
-										}
-										if(Mag2 > 2){
-											Amp2[3] = (Amp2[2]/pixel_divider2)*mvpixel[Mag2];
-										}
-										else{
-											Amp2[3] = (Amp2[2]/pixel_divider2)/mvpixel[Mag2];
-										}
-										if(Ch1on == 1){
-											if(Amp1[3] < 1000){
-												MagDisplay1[0] = (Amp1[3]/100)%10 + 48;
-												MagDisplay1[1] = (Amp1[3]/10)%10 + 48;
-												MagDisplay1[2] = Amp1[3]%10 + 48;
-												MagDisplay1[3] = 32;
-												MagDisplay1[4] = 109;
-												MagDisplay1[5] = 86;
-												MagDisplay1[6] = 0;
-												if(MagDisplay1[0] == 48){
-													MagDisplay1[0] = 32;
-													if(MagDisplay1[1] == 48){
-														MagDisplay1[1] = 32;
-													}
-												}
-											}
-											else{
-												MagDisplay1[0] = (Amp1[3]/10000)%10 + 48;
-												MagDisplay1[1] = (Amp1[3]/1000)%10 + 48;
-												MagDisplay1[2] = 46;
-												MagDisplay1[3] = (Amp1[3]/100)%10 + 48;
-												MagDisplay1[4] = (Amp1[3]/10)%10 + 48;
-												MagDisplay1[5] = 32;
-												MagDisplay1[6] = 86;
-												if(MagDisplay1[0] == 48){
-													MagDisplay1[0] = 32;
-													if(MagDisplay1[1] == 48){
-														MagDisplay1[1] = 32;
-													}
-												}
-											}
-										}
-										else{
-											MagDisplay1[0] = 86;
-											MagDisplay1[1] = 0;
-										}
-										if(Ch2on == 1){
-											if(Amp2[3] < 1000){
-												MagDisplay2[0] = (Amp2[3]/100)%10 + 48;
-												MagDisplay2[1] = (Amp2[3]/10)%10 + 48;
-												MagDisplay2[2] = Amp2[3]%10 + 48;
-												MagDisplay2[3] = 32;
-												MagDisplay2[4] = 109;
-												MagDisplay2[5] = 86;
-												MagDisplay2[6] = 0;
-												if(MagDisplay2[0] == 48){
-													MagDisplay2[0] = 32;
-													if(MagDisplay2[1] == 48){
-														MagDisplay2[1] = 32;
-													}
-												}
-											}
-											else{
-												MagDisplay2[0] = (Amp2[3]/10000)%10 + 48;
-												MagDisplay2[1] = (Amp2[3]/1000)%10 + 48;
-												MagDisplay2[2] = 46;
-												MagDisplay2[3] = (Amp2[3]/100)%10 + 48;
-												MagDisplay2[4] = (Amp2[3]/10)%10 + 48;
-												MagDisplay2[5] = 32;
-												MagDisplay2[6] = 86;
-												if(MagDisplay2[0] == 48){
-													MagDisplay2[0] = 32;
-													if(MagDisplay2[1] == 48){
-														MagDisplay2[1] = 32;
-													}
-												}
-											}
-										}
-										else{
-											MagDisplay2[0] = 86;
-											MagDisplay2[1] = 0;
-										}
-										PushButtonTextSet(&g_psBotButtons[2], MagDisplay1);
-										PushButtonTextSet(&g_psBotButtons[3], MagDisplay2);
-
+										UpdateMeasurements();
 										m = 0;
 										begin = 0;
 										TriggerStart = 0;
@@ -1737,112 +1623,7 @@ int main(void) {
 									for(i=0;i<SERIES_LENGTH;i++){
 										totalsB[i] = 0;
 									}
-									Amp1[1] = 0;
-									Amp1[0] = 4097;
-									Amp2[1] = 0;
-									Amp2[0] = 4097;
-									for(i=0;i<SERIES_LENGTH;i++){
-										if(pixels[i] < Amp1[0]){
-											Amp1[0] = pixels[i];
-										}
-										if(pixels[i] > Amp1[1]){
-											Amp1[1] = pixels[i];
-										}
-										if(pixels2[i] < Amp2[0]){
-											Amp2[0] = pixels2[i];
-										}
-										if(pixels2[i] > Amp2[1]){
-											Amp2[1] = pixels2[i];
-										}
-									}
-									Amp1[2] = Amp1[1] - Amp1[0];
-									Amp2[2] = Amp2[1] - Amp2[0];
-									if(Mag1 > 2){
-										Amp1[3] = (Amp1[2]/pixel_divider1)*mvpixel[Mag1];
-									}
-									else{
-										Amp1[3] = (Amp1[2]/pixel_divider1)/mvpixel[Mag1];
-									}
-									if(Mag2 > 2){
-										Amp2[3] = (Amp2[2]/pixel_divider2)*mvpixel[Mag2];
-									}
-									else{
-										Amp2[3] = (Amp2[2]/pixel_divider2)/mvpixel[Mag2];
-									}
-									if(Ch1on == 1){
-										if(Amp1[3] < 1000){
-											MagDisplay1[0] = (Amp1[3]/100)%10 + 48;
-											MagDisplay1[1] = (Amp1[3]/10)%10 + 48;
-											MagDisplay1[2] = Amp1[3]%10 + 48;
-											MagDisplay1[3] = 32;
-											MagDisplay1[4] = 109;
-											MagDisplay1[5] = 86;
-											MagDisplay1[6] = 0;
-											if(MagDisplay1[0] == 48){
-												MagDisplay1[0] = 32;
-												if(MagDisplay1[1] == 48){
-													MagDisplay1[1] = 32;
-												}
-											}
-										}
-										else{
-											MagDisplay1[0] = (Amp1[3]/10000)%10 + 48;
-											MagDisplay1[1] = (Amp1[3]/1000)%10 + 48;
-											MagDisplay1[2] = 46;
-											MagDisplay1[3] = (Amp1[3]/100)%10 + 48;
-											MagDisplay1[4] = (Amp1[3]/10)%10 + 48;
-											MagDisplay1[5] = 32;
-											MagDisplay1[6] = 86;
-											if(MagDisplay1[0] == 48){
-												MagDisplay1[0] = 32;
-												if(MagDisplay1[1] == 48){
-													MagDisplay1[1] = 32;
-												}
-											}
-										}
-									}
-									else{
-										MagDisplay1[0] = 86;
-										MagDisplay1[1] = 0;
-									}
-									if(Ch2on == 1){
-										if(Amp2[3] < 1000){
-											MagDisplay2[0] = (Amp2[3]/100)%10 + 48;
-											MagDisplay2[1] = (Amp2[3]/10)%10 + 48;
-											MagDisplay2[2] = Amp2[3]%10 + 48;
-											MagDisplay2[3] = 32;
-											MagDisplay2[4] = 109;
-											MagDisplay2[5] = 86;
-											MagDisplay2[6] = 0;
-											if(MagDisplay2[0] == 48){
-												MagDisplay2[0] = 32;
-												if(MagDisplay2[1] == 48){
-													MagDisplay2[1] = 32;
-												}
-											}
-										}
-										else{
-											MagDisplay2[0] = (Amp2[3]/10000)%10 + 48;
-											MagDisplay2[1] = (Amp2[3]/1000)%10 + 48;
-											MagDisplay2[2] = 46;
-											MagDisplay2[3] = (Amp2[3]/100)%10 + 48;
-											MagDisplay2[4] = (Amp2[3]/10)%10 + 48;
-											MagDisplay2[5] = 32;
-											MagDisplay2[6] = 86;
-											if(MagDisplay2[0] == 48){
-												MagDisplay2[0] = 32;
-												if(MagDisplay2[1] == 48){
-													MagDisplay2[1] = 32;
-												}
-											}
-										}
-									}
-									else{
-										MagDisplay2[0] = 86;
-										MagDisplay2[1] = 0;
-									}
-									PushButtonTextSet(&g_psBotButtons[2], MagDisplay1);
-									PushButtonTextSet(&g_psBotButtons[3], MagDisplay2);
+									UpdateMeasurements();
 									m = 0;
 									begin = 0;
 									TriggerStart = 0;
@@ -1875,112 +1656,7 @@ int main(void) {
 							pixels2[SERIES_LENGTH-i] = values2[f + k*MEM_BUFFER_SIZE - i*(NumSkip+1)];
 						}*/
 						TriggerStart = 1;
-						Amp1[1] = 0;
-						Amp1[0] = 4097;
-						Amp2[1] = 0;
-						Amp2[0] = 4097;
-						for(i=0;i<SERIES_LENGTH;i++){
-							if(pixels[i] < Amp1[0]){
-								Amp1[0] = pixels[i];
-							}
-							if(pixels[i] > Amp1[1]){
-								Amp1[1] = pixels[i];
-							}
-							if(pixels2[i] < Amp2[0]){
-								Amp2[0] = pixels2[i];
-							}
-							if(pixels2[i] > Amp2[1]){
-								Amp2[1] = pixels2[i];
-							}
-						}
-						Amp1[2] = Amp1[1] - Amp1[0];
-						Amp2[2] = Amp2[1] - Amp2[0];
-						if(Mag1 > 2){
-							Amp1[3] = (Amp1[2]/pixel_divider1)*mvpixel[Mag1];
-						}
-						else{
-							Amp1[3] = (Amp1[2]/pixel_divider1)/mvpixel[Mag1];
-						}
-						if(Mag2 > 2){
-							Amp2[3] = (Amp2[2]/pixel_divider2)*mvpixel[Mag2];
-						}
-						else{
-							Amp2[3] = (Amp2[2]/pixel_divider2)/mvpixel[Mag2];
-						}
-						if(Ch1on == 1){
-							if(Amp1[3] < 1000){
-								MagDisplay1[0] = (Amp1[3]/100)%10 + 48;
-								MagDisplay1[1] = (Amp1[3]/10)%10 + 48;
-								MagDisplay1[2] = Amp1[3]%10 + 48;
-								MagDisplay1[3] = 32;
-								MagDisplay1[4] = 109;
-								MagDisplay1[5] = 86;
-								MagDisplay1[6] = 0;
-								if(MagDisplay1[0] == 48){
-									MagDisplay1[0] = 32;
-									if(MagDisplay1[1] == 48){
-										MagDisplay1[1] = 32;
-									}
-								}
-							}
-							else{
-								MagDisplay1[0] = (Amp1[3]/10000)%10 + 48;
-								MagDisplay1[1] = (Amp1[3]/1000)%10 + 48;
-								MagDisplay1[2] = 46;
-								MagDisplay1[3] = (Amp1[3]/100)%10 + 48;
-								MagDisplay1[4] = (Amp1[3]/10)%10 + 48;
-								MagDisplay1[5] = 32;
-								MagDisplay1[6] = 86;
-								if(MagDisplay1[0] == 48){
-									MagDisplay1[0] = 32;
-									if(MagDisplay1[1] == 48){
-										MagDisplay1[1] = 32;
-									}
-								}
-							}
-						}
-						else{
-							MagDisplay1[0] = 86;
-							MagDisplay1[1] = 0;
-						}
-						if(Ch2on == 1){
-							if(Amp2[3] < 1000){
-								MagDisplay2[0] = (Amp2[3]/100)%10 + 48;
-								MagDisplay2[1] = (Amp2[3]/10)%10 + 48;
-								MagDisplay2[2] = Amp2[3]%10 + 48;
-								MagDisplay2[3] = 32;
-								MagDisplay2[4] = 109;
-								MagDisplay2[5] = 86;
-								MagDisplay2[6] = 0;
-								if(MagDisplay2[0] == 48){
-									MagDisplay2[0] = 32;
-									if(MagDisplay2[1] == 48){
-										MagDisplay2[1] = 32;
-									}
-								}
-							}
-							else{
-								MagDisplay2[0] = (Amp2[3]/10000)%10 + 48;
-								MagDisplay2[1] = (Amp2[3]/1000)%10 + 48;
-								MagDisplay2[2] = 46;
-								MagDisplay2[3] = (Amp2[3]/100)%10 + 48;
-								MagDisplay2[4] = (Amp2[3]/10)%10 + 48;
-								MagDisplay2[5] = 32;
-								MagDisplay2[6] = 86;
-								if(MagDisplay2[0] == 48){
-									MagDisplay2[0] = 32;
-									if(MagDisplay2[1] == 48){
-										MagDisplay2[1] = 32;
-									}
-								}
-							}
-						}
-						else{
-							MagDisplay2[0] = 86;
-							MagDisplay2[1] = 0;
-						}
-						PushButtonTextSet(&g_psBotButtons[2], MagDisplay1);
-						PushButtonTextSet(&g_psBotButtons[3], MagDisplay2);
+						UpdateMeasurements();
 					}
 
 				}
@@ -2167,44 +1843,28 @@ int main(void) {
 
 						if(TriggerMode == 0){
 							if(TriggerSource == 1){
-								if(values[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 2))
-									below = 1;
-
-								if(values[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 2) && below == 1){
+								if(values[f + k*MEM_BUFFER_SIZE-1] <= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel){
 									TriggerStart = 1;
 									Trigger = 1;
-									below = 0;
 								}
 							}
 							else
-								if(values2[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 2))
-									below = 1;
-
-								if(values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 2) && below == 1){
+								if(values2[f + k*MEM_BUFFER_SIZE-1] <= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel){
 									TriggerStart = 1;
 									Trigger = 1;
-									below = 0;
 								}
 						}
 						else if(TriggerMode == 1){
 							if(TriggerSource == 1){
-								if(values[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 2))
-									above = 1;
-
-								if(values[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 2) && above == 1){
+								if(values[f + k*MEM_BUFFER_SIZE-1] >= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel){
 									TriggerStart = 1;
 									Trigger = 1;
-									above = 0;
 								}
 							}
 							else
-								if(values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 2))
-									above = 1;
-
-								if(values2[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 2) && above == 1){
+								if(values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel){
 									TriggerStart = 1;
 									Trigger = 1;
-									above = 0;
 								}
 						}
 
@@ -2212,12 +1872,12 @@ int main(void) {
 							if(CaptureMode == 0){
 								if(begin == 0){
 									begin=1;
-									for(i=0;i<TriggerPosition*(NumSkip+1);i=i+NumSkip+1){
-										if((int32_t) (f + k*MEM_BUFFER_SIZE - TriggerPosition + i) < 0){
-											pixels[i] = values[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i)];
+									for(i=0;i<TriggerPosition*(NumSkip+1);i++){
+										if((int32_t) (f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1)) < 0){
+											pixels[i] = values[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1))];
 										}
 										else{
-											pixels[i] = values[f + k*MEM_BUFFER_SIZE - TriggerPosition + i];
+											pixels[i] = values[f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1)];
 										}
 									}
 								}
@@ -2232,112 +1892,7 @@ int main(void) {
 										m++;
 									}
 									else{
-										Amp1[1] = 0;
-										Amp1[0] = 4097;
-										Amp2[1] = 0;
-										Amp2[0] = 4097;
-										for(i=0;i<SERIES_LENGTH;i++){
-											if(pixels[i] < Amp1[0]){
-												Amp1[0] = pixels[i];
-											}
-											if(pixels[i] > Amp1[1]){
-												Amp1[1] = pixels[i];
-											}
-											if(pixels2[i] < Amp2[0]){
-												Amp2[0] = pixels2[i];
-											}
-											if(pixels2[i] > Amp2[1]){
-												Amp2[1] = pixels2[i];
-											}
-										}
-										Amp1[2] = Amp1[1] - Amp1[0];
-										Amp2[2] = Amp2[1] - Amp2[0];
-										if(Mag1 > 2){
-											Amp1[3] = (Amp1[2]/pixel_divider1)*mvpixel[Mag1];
-										}
-										else{
-											Amp1[3] = (Amp1[2]/pixel_divider1)/mvpixel[Mag1];
-										}
-										if(Mag2 > 2){
-											Amp2[3] = (Amp2[2]/pixel_divider2)*mvpixel[Mag2];
-										}
-										else{
-											Amp2[3] = (Amp2[2]/pixel_divider2)/mvpixel[Mag2];
-										}
-										if(Ch1on == 1){
-											if(Amp1[3] < 1000){
-												MagDisplay1[0] = (Amp1[3]/100)%10 + 48;
-												MagDisplay1[1] = (Amp1[3]/10)%10 + 48;
-												MagDisplay1[2] = Amp1[3]%10 + 48;
-												MagDisplay1[3] = 32;
-												MagDisplay1[4] = 109;
-												MagDisplay1[5] = 86;
-												MagDisplay1[6] = 0;
-												if(MagDisplay1[0] == 48){
-													MagDisplay1[0] = 32;
-													if(MagDisplay1[1] == 48){
-														MagDisplay1[1] = 32;
-													}
-												}
-											}
-											else{
-												MagDisplay1[0] = (Amp1[3]/10000)%10 + 48;
-												MagDisplay1[1] = (Amp1[3]/1000)%10 + 48;
-												MagDisplay1[2] = 46;
-												MagDisplay1[3] = (Amp1[3]/100)%10 + 48;
-												MagDisplay1[4] = (Amp1[3]/10)%10 + 48;
-												MagDisplay1[5] = 32;
-												MagDisplay1[6] = 86;
-												if(MagDisplay1[0] == 48){
-													MagDisplay1[0] = 32;
-													if(MagDisplay1[1] == 48){
-														MagDisplay1[1] = 32;
-													}
-												}
-											}
-										}
-										else{
-											MagDisplay1[0] = 86;
-											MagDisplay1[1] = 0;
-										}
-										if(Ch2on == 1){
-											if(Amp2[3] < 1000){
-												MagDisplay2[0] = (Amp2[3]/100)%10 + 48;
-												MagDisplay2[1] = (Amp2[3]/10)%10 + 48;
-												MagDisplay2[2] = Amp2[3]%10 + 48;
-												MagDisplay2[3] = 32;
-												MagDisplay2[4] = 109;
-												MagDisplay2[5] = 86;
-												MagDisplay2[6] = 0;
-												if(MagDisplay2[0] == 48){
-													MagDisplay2[0] = 32;
-													if(MagDisplay2[1] == 48){
-														MagDisplay2[1] = 32;
-													}
-												}
-											}
-											else{
-												MagDisplay2[0] = (Amp2[3]/10000)%10 + 48;
-												MagDisplay2[1] = (Amp2[3]/1000)%10 + 48;
-												MagDisplay2[2] = 46;
-												MagDisplay2[3] = (Amp2[3]/100)%10 + 48;
-												MagDisplay2[4] = (Amp2[3]/10)%10 + 48;
-												MagDisplay2[5] = 32;
-												MagDisplay2[6] = 86;
-												if(MagDisplay2[0] == 48){
-													MagDisplay2[0] = 32;
-													if(MagDisplay2[1] == 48){
-														MagDisplay2[1] = 32;
-													}
-												}
-											}
-										}
-										else{
-											MagDisplay2[0] = 86;
-											MagDisplay2[1] = 0;
-										}
-										PushButtonTextSet(&g_psBotButtons[2], MagDisplay1);
-										PushButtonTextSet(&g_psBotButtons[3], MagDisplay2);
+										UpdateMeasurements();
 										m = 0;
 										begin = 0;
 										TriggerStart = 0;
@@ -2382,112 +1937,7 @@ int main(void) {
 									for(i=0;i<SERIES_LENGTH;i++){
 										totalsB[i] = 0;
 									}
-									Amp1[1] = 0;
-									Amp1[0] = 4097;
-									Amp2[1] = 0;
-									Amp2[0] = 4097;
-									for(i=0;i<SERIES_LENGTH;i++){
-										if(pixels[i] < Amp1[0]){
-											Amp1[0] = pixels[i];
-										}
-										if(pixels[i] > Amp1[1]){
-											Amp1[1] = pixels[i];
-										}
-										if(pixels2[i] < Amp2[0]){
-											Amp2[0] = pixels2[i];
-										}
-										if(pixels2[i] > Amp2[1]){
-											Amp2[1] = pixels2[i];
-										}
-									}
-									Amp1[2] = Amp1[1] - Amp1[0];
-									Amp2[2] = Amp2[1] - Amp2[0];
-									if(Mag1 > 2){
-										Amp1[3] = (Amp1[2]/pixel_divider1)*mvpixel[Mag1];
-									}
-									else{
-										Amp1[3] = (Amp1[2]/pixel_divider1)/mvpixel[Mag1];
-									}
-									if(Mag2 > 2){
-										Amp2[3] = (Amp2[2]/pixel_divider2)*mvpixel[Mag2];
-									}
-									else{
-										Amp2[3] = (Amp2[2]/pixel_divider2)/mvpixel[Mag2];
-									}
-									if(Ch1on == 1){
-										if(Amp1[3] < 1000){
-											MagDisplay1[0] = (Amp1[3]/100)%10 + 48;
-											MagDisplay1[1] = (Amp1[3]/10)%10 + 48;
-											MagDisplay1[2] = Amp1[3]%10 + 48;
-											MagDisplay1[3] = 32;
-											MagDisplay1[4] = 109;
-											MagDisplay1[5] = 86;
-											MagDisplay1[6] = 0;
-											if(MagDisplay1[0] == 48){
-												MagDisplay1[0] = 32;
-												if(MagDisplay1[1] == 48){
-													MagDisplay1[1] = 32;
-												}
-											}
-										}
-										else{
-											MagDisplay1[0] = (Amp1[3]/10000)%10 + 48;
-											MagDisplay1[1] = (Amp1[3]/1000)%10 + 48;
-											MagDisplay1[2] = 46;
-											MagDisplay1[3] = (Amp1[3]/100)%10 + 48;
-											MagDisplay1[4] = (Amp1[3]/10)%10 + 48;
-											MagDisplay1[5] = 32;
-											MagDisplay1[6] = 86;
-											if(MagDisplay1[0] == 48){
-												MagDisplay1[0] = 32;
-												if(MagDisplay1[1] == 48){
-													MagDisplay1[1] = 32;
-												}
-											}
-										}
-									}
-									else{
-										MagDisplay1[0] = 86;
-										MagDisplay1[1] = 0;
-									}
-									if(Ch2on == 1){
-										if(Amp2[3] < 1000){
-											MagDisplay2[0] = (Amp2[3]/100)%10 + 48;
-											MagDisplay2[1] = (Amp2[3]/10)%10 + 48;
-											MagDisplay2[2] = Amp2[3]%10 + 48;
-											MagDisplay2[3] = 32;
-											MagDisplay2[4] = 109;
-											MagDisplay2[5] = 86;
-											MagDisplay2[6] = 0;
-											if(MagDisplay2[0] == 48){
-												MagDisplay2[0] = 32;
-												if(MagDisplay2[1] == 48){
-													MagDisplay2[1] = 32;
-												}
-											}
-										}
-										else{
-											MagDisplay2[0] = (Amp2[3]/10000)%10 + 48;
-											MagDisplay2[1] = (Amp2[3]/1000)%10 + 48;
-											MagDisplay2[2] = 46;
-											MagDisplay2[3] = (Amp2[3]/100)%10 + 48;
-											MagDisplay2[4] = (Amp2[3]/10)%10 + 48;
-											MagDisplay2[5] = 32;
-											MagDisplay2[6] = 86;
-											if(MagDisplay2[0] == 48){
-												MagDisplay2[0] = 32;
-												if(MagDisplay2[1] == 48){
-													MagDisplay2[1] = 32;
-												}
-											}
-										}
-									}
-									else{
-										MagDisplay2[0] = 86;
-										MagDisplay2[1] = 0;
-									}
-									PushButtonTextSet(&g_psBotButtons[2], MagDisplay1);
-									PushButtonTextSet(&g_psBotButtons[3], MagDisplay2);
+									UpdateMeasurements();
 									m = 0;
 									begin = 0;
 									TriggerStart = 0;
@@ -2512,112 +1962,7 @@ int main(void) {
 							pixels2[SERIES_LENGTH-i] = values2[f + k*MEM_BUFFER_SIZE - i];
 						}*/
 						TriggerStart = 1;
-						Amp1[1] = 0;
-						Amp1[0] = 4097;
-						Amp2[1] = 0;
-						Amp2[0] = 4097;
-						for(i=0;i<SERIES_LENGTH;i++){
-							if(pixels[i] < Amp1[0]){
-								Amp1[0] = pixels[i];
-							}
-							if(pixels[i] > Amp1[1]){
-								Amp1[1] = pixels[i];
-							}
-							if(pixels2[i] < Amp2[0]){
-								Amp2[0] = pixels2[i];
-							}
-							if(pixels2[i] > Amp2[1]){
-								Amp2[1] = pixels2[i];
-							}
-						}
-						Amp1[2] = Amp1[1] - Amp1[0];
-						Amp2[2] = Amp2[1] - Amp2[0];
-						if(Mag1 > 2){
-							Amp1[3] = (Amp1[2]/pixel_divider1)*mvpixel[Mag1];
-						}
-						else{
-							Amp1[3] = (Amp1[2]/pixel_divider1)/mvpixel[Mag1];
-						}
-						if(Mag2 > 2){
-							Amp2[3] = (Amp2[2]/pixel_divider2)*mvpixel[Mag2];
-						}
-						else{
-							Amp2[3] = (Amp2[2]/pixel_divider2)/mvpixel[Mag2];
-						}
-						if(Ch1on == 1){
-							if(Amp1[3] < 1000){
-								MagDisplay1[0] = (Amp1[3]/100)%10 + 48;
-								MagDisplay1[1] = (Amp1[3]/10)%10 + 48;
-								MagDisplay1[2] = Amp1[3]%10 + 48;
-								MagDisplay1[3] = 32;
-								MagDisplay1[4] = 109;
-								MagDisplay1[5] = 86;
-								MagDisplay1[6] = 0;
-								if(MagDisplay1[0] == 48){
-									MagDisplay1[0] = 32;
-									if(MagDisplay1[1] == 48){
-										MagDisplay1[1] = 32;
-									}
-								}
-							}
-							else{
-								MagDisplay1[0] = (Amp1[3]/10000)%10 + 48;
-								MagDisplay1[1] = (Amp1[3]/1000)%10 + 48;
-								MagDisplay1[2] = 46;
-								MagDisplay1[3] = (Amp1[3]/100)%10 + 48;
-								MagDisplay1[4] = (Amp1[3]/10)%10 + 48;
-								MagDisplay1[5] = 32;
-								MagDisplay1[6] = 86;
-								if(MagDisplay1[0] == 48){
-									MagDisplay1[0] = 32;
-									if(MagDisplay1[1] == 48){
-										MagDisplay1[1] = 32;
-									}
-								}
-							}
-						}
-						else{
-							MagDisplay1[0] = 86;
-							MagDisplay1[1] = 0;
-						}
-						if(Ch2on == 1){
-							if(Amp2[3] < 1000){
-								MagDisplay2[0] = (Amp2[3]/100)%10 + 48;
-								MagDisplay2[1] = (Amp2[3]/10)%10 + 48;
-								MagDisplay2[2] = Amp2[3]%10 + 48;
-								MagDisplay2[3] = 32;
-								MagDisplay2[4] = 109;
-								MagDisplay2[5] = 86;
-								MagDisplay2[6] = 0;
-								if(MagDisplay2[0] == 48){
-									MagDisplay2[0] = 32;
-									if(MagDisplay2[1] == 48){
-										MagDisplay2[1] = 32;
-									}
-								}
-							}
-							else{
-								MagDisplay2[0] = (Amp2[3]/10000)%10 + 48;
-								MagDisplay2[1] = (Amp2[3]/1000)%10 + 48;
-								MagDisplay2[2] = 46;
-								MagDisplay2[3] = (Amp2[3]/100)%10 + 48;
-								MagDisplay2[4] = (Amp2[3]/10)%10 + 48;
-								MagDisplay2[5] = 32;
-								MagDisplay2[6] = 86;
-								if(MagDisplay2[0] == 48){
-									MagDisplay2[0] = 32;
-									if(MagDisplay2[1] == 48){
-										MagDisplay2[1] = 32;
-									}
-								}
-							}
-						}
-						else{
-							MagDisplay2[0] = 86;
-							MagDisplay2[1] = 0;
-						}
-						PushButtonTextSet(&g_psBotButtons[2], MagDisplay1);
-						PushButtonTextSet(&g_psBotButtons[3], MagDisplay2);
+						UpdateMeasurements();
 					}
 
 				}
@@ -2632,6 +1977,8 @@ int main(void) {
 
 				if(stop == 0){
 					WidgetPaint((tWidget *) &g_sWaveform);
+					WidgetPaint((tWidget * ) &g_psBotButtons[0]);
+					WidgetPaint((tWidget * ) &g_psBotButtons[1]);
 					WidgetPaint((tWidget * ) &g_psBotButtons[2]);
 					WidgetPaint((tWidget * ) &g_psBotButtons[3]);
 				}
@@ -2879,24 +2226,60 @@ void setup(void) {
 		old2[i] = 120;
 	}
 
-	// Setup the mV per pixel for each vertical scale divison
-	mvpixel[0] = 15/2; // this is pixel/mv
-	mvpixel[1] = 15/5; // this is pixel/mv
-	mvpixel[2] = 15/10; // this is pixel/mv
-	mvpixel[3] = 20/15;
-	mvpixel[4] = 50/15;
-	mvpixel[5] = 100/15;
-	mvpixel[6] = 200/15;
-	mvpixel[7] = 500/15;
-	mvpixel[8] = 1000/15;
-	mvpixel[9] = 2000/15;
-	mvpixel[10] = 5000/15;
-	mvpixel[11] = 10000/15;
-	mvpixel[12] = 20000/15;
-	mvpixel[13] = 50000/15;
+	// Setup the mV per pixel for each vertical scale division
+	mvpixel[0] = 2/15.0;
+	mvpixel[1] = 5/15.0;
+	mvpixel[2] = 10/15.0;
+	mvpixel[3] = 20.0/15;
+	mvpixel[4] = 50.0/15;
+	mvpixel[5] = 100.0/15;
+	mvpixel[6] = 200.0/15;
+	mvpixel[7] = 500.0/15;
+	mvpixel[8] = 1000.0/15;
+	mvpixel[9] = 2000.0/15;
+	mvpixel[10] = 5000.0/15;
+	mvpixel[11] = 10000.0/15;
+	mvpixel[12] = 20000.0/15;
+	mvpixel[13] = 50000.0/15;
+
+	// Setup the seconds per pixel for horixtonal scale division
+	secpixel[0] = (8*.00000002)/240;
+	secpixel[1] = (8*.00000005)/240;
+	secpixel[2] = (8*.0000001)/240;
+	secpixel[3] = (8*.0000002)/240;
+	secpixel[4] = (8*.0000005)/240;
+	secpixel[5] = (8*.000001)/240;
+	secpixel[6] = (8*.000002)/240;
+	secpixel[7] = (8*.000005)/240;
+	secpixel[8] = (8*.00001)/240;
+	secpixel[9] = (8*.00002)/240;
+	secpixel[10] = (8*.00005)/240;
+	secpixel[11] = (8*.0001)/240;
+	secpixel[12] = (8*.0005)/240;
+	secpixel[13] = (8*.0002)/240;
+	secpixel[14] = (8*.001)/240;
+	secpixel[15] = (8*.002)/240;
+	secpixel[16] = (8*.005)/240;
+	secpixel[17] = (8*.01)/240;
+	secpixel[18] = (8*.02)/240;
+	secpixel[19] = (8*.05)/240;
+	secpixel[20] = (8*.1)/240;
+	secpixel[21] = (8*.2)/240;
+	secpixel[22] = (8*.5)/240;
+	secpixel[23] = (8*1.0)/240;
+	secpixel[24] = (8*2.0)/240;
+	secpixel[25] = (8*5.0)/240;
+	secpixel[26] = (8*10.0)/240;
+	secpixel[27] = (8*20.0)/240;
+	secpixel[28] = (8*50.0)/240;
+
 
 	// Point the trigger level pointer to the address containing the trigger level
 	PTriggerLevel = &TriggerLevel;
+
+	// Point the frequncy pointers to their corresponding values
+	pFreq1 = &Freq1;
+	pFreq2 = &Freq2;
 
 	// Enable FPU
 	FPULazyStackingEnable();
@@ -3583,18 +2966,23 @@ void SetupTimeDivision(uint8_t Scale){
 	switch(Scale){
 	case 0: // 20ns/div
 		EPIDivide = 5;
+		NumSkip = 0;
 		break;
 	case 1: // 50ns/div
 		EPIDivide = 10;
+		NumSkip = 0;
 		break;
 	case 2: // 100ns/div
 		EPIDivide = 35;
+		NumSkip = 0;
 		break;
 	case 3: // 200ns/div
 		EPIDivide = 75;
+		NumSkip = 0;
 		break;
 	case 4: // 500ns/div
-		EPIDivide = 100;
+		EPIDivide = 0;
+		NumSkip = 0;
 		break;
 	case 5: // 1us/div
 		EPIDivide = 1;
@@ -3710,5 +3098,464 @@ void SetupTrigger(uint16_t Level, uint8_t Start_Position, uint8_t Mode, uint8_t 
 	Trigger = 0;
 	TriggerStart = 0;
 	GoThrough = 0;
+}
+
+void UpdateMeasurements(void){
+	Amp1[1] = 0;
+	Amp1[0] = 4097;
+	Amp2[1] = 0;
+	Amp2[0] = 4097;
+	freqref1 = pixels[3];
+	//t1 = 0;
+	freqstart1 = 0;
+	//freqstop1 = 0;
+	freqref2 = pixels2[3];
+	//t2 = 0;
+	freqstart2 = 0;
+	//freqstop2 = 0;
+	Freq1 = 0;
+	Freq2 = 0;
+	for(l1=0;l1<TimeAvg;l1++){
+		t1[l1] = 0;
+	}
+	for(l2=0;l2<TimeAvg;l2++){
+		t2[l2] = 0;
+	}
+	l1 = 0;
+	l2 = 0;
+	for(i=0;i<SERIES_LENGTH;i++){
+		if(pixels[i] < Amp1[0]){
+			Amp1[0] = pixels[i];
+		}
+		if(pixels[i] > Amp1[1]){
+			Amp1[1] = pixels[i];
+		}
+		if(pixels2[i] < Amp2[0]){
+			Amp2[0] = pixels2[i];
+		}
+		if(pixels2[i] > Amp2[1]){
+			Amp2[1] = pixels2[i];
+		}
+		/*if(TriggerMode == 0 && i > 0){
+			if(pixels[i-1] <= freqref1 && pixels[i] >= freqref1 && freqstart1 == 0 && freqstop1 == 0){
+				freqstart1 = 1;
+			}
+			else if(pixels[i-1] <= freqref1 && pixels[i] >= freqref1 && freqstart1 == 1){
+				freqstart1 = 0;
+				freqstop1 = 1;
+			}
+			if(freqstart1 == 1){
+				t1++;
+			}
+
+			if(pixels2[i-1] <= freqref2 && pixels2[i] >= freqref2 && freqstart2 == 0 && freqstop2 == 0){
+				freqstart2 = 1;
+			}
+			else if(pixels2[i-1] <= freqref2 && pixels2[i] >= freqref2 && freqstart2 == 1){
+				freqstart2 = 0;
+				freqstop2 = 1;
+			}
+			if(freqstart2 == 1){
+				t2++;
+			}
+
+		}*/
+		if(TriggerMode == 0 && i > 0){
+			if(pixels[i-1] <= freqref1 && pixels[i] >= freqref1 && freqstart1 == 0){
+				freqstart1 = 1;
+			}
+			else if(pixels[i-1] <= freqref1 && pixels[i] >= freqref1 && freqstart1 == 1){
+				freqstart1 = 0;
+				l1++;
+			}
+			if(freqstart1 == 1){
+				t1[l1] = t1[l1] + 1;
+			}
+
+			if(pixels2[i-1] <= freqref2 && pixels2[i] >= freqref2 && freqstart2 == 0 && freqstop2 == 0){
+				freqstart2 = 1;
+			}
+			else if(pixels2[i-1] <= freqref2 && pixels2[i] >= freqref2){
+				freqstart2 = 0;
+				l2++;
+			}
+			if(freqstart2 == 1){
+				t2[l2] = t2[l2] + 1;
+			}
+
+		}
+		else if(TriggerMode == 1 && i > 0){
+			if(pixels[i-1] >= freqref1 && pixels[i] <= freqref1 && freqstart1 == 0){
+				freqstart1 = 1;
+			}
+			else if(pixels[i-1] >= freqref1 && pixels[i] <= freqref1 && freqstart1 == 1){
+				freqstart1 = 0;
+				l1++;
+			}
+			if(freqstart1 == 1){
+				t1[l1] = t1[l1] + 1;
+			}
+
+			if(pixels2[i-1] >= freqref2 && pixels2[i] <= freqref2 && freqstart2 == 0){
+				freqstart2 = 1;
+			}
+			else if(pixels2[i-1] >= freqref2 && pixels2[i] <= freqref2 && freqstart2 == 1){
+				freqstart2 = 0;
+				 l2++;
+			}
+			if(freqstart2 == 1){
+				t2[l2] = t2[l2] + 1;
+			}
+		}
+		/*else if(TriggerMode == 1 && i > 0){
+			if(pixels[i-1] >= freqref1 && pixels[i] <= freqref1 && freqstart1 == 0 && freqstop1 == 0){
+				freqstart1 = 1;
+			}
+			else if(pixels[i-1] >= freqref1 && pixels[i] <= freqref1 && freqstart1 == 1){
+				freqstart1 = 0;
+				freqstop1 = 1;
+			}
+			if(freqstart1 == 1){
+				t1++;
+			}
+
+			if(pixels2[i-1] >= freqref2 && pixels2[i] <= freqref2 && freqstart2 == 0 && freqstop2 == 0){
+				freqstart2 = 1;
+			}
+			else if(pixels2[i-1] >= freqref2 && pixels2[i] <= freqref2 && freqstart2 == 1){
+				freqstart2 = 0;
+				freqstop2 = 1;
+			}
+			if(freqstart2 == 1){
+				t2++;
+			}
+		}*/
+	}
+	totalt1 = 0;
+	totalt2 = 0;
+	NumAvgt1 = 0;
+	NumAvgt2 = 0;
+	for(i=0;i<TimeAvg;i++){
+		if(t1[i] != 0){
+			totalt1 = totalt1 + t1[i];
+			NumAvgt1++;
+		}
+		if(t2[i] != 0){
+			totalt2 = totalt2 + t1[i];
+			NumAvgt2++;
+		}
+	}
+	t1Avg = totalt1/NumAvgt1;
+	t2Avg = totalt2/NumAvgt2;
+	totalt1 = 0;
+	totalt2 = 0;
+	NumAvgt1 = 0;
+	NumAvgt2 = 0;
+	for(i=0;i<TimeAvg;i++){
+		if(t1[i] != 0 && t1[i] > t1Avg*0.5 && t1[i] < t1Avg*1.5){
+			totalt1 = totalt1 + t1[i];
+			NumAvgt1++;
+		}
+		if(t2[i] != 0&& t2[i] > t2Avg*0.5 && t2[i] < t2Avg*1.5){
+			totalt2 = totalt2 + t1[i];
+			NumAvgt2++;
+		}
+	}
+	t1Avg = totalt1/NumAvgt1;
+	t2Avg = totalt2/NumAvgt2;
+	if(t1Avg != 0){
+		Freq1 = 1000/(t1Avg*secpixel[Time]);
+	}
+	if(t2Avg != 0){
+		Freq2 = 1000/(t2Avg*secpixel[Time]);
+	}
+
+	if(Ch1on == 1){
+		if(Freq1 > 1000000000){
+			FreqDisplay1[0] = (Freq1/1000000000)%10 + 48;
+			FreqDisplay1[1] = 46;
+			FreqDisplay1[2] = (Freq1/1000000000)%10 + 48;
+			FreqDisplay1[3] = (Freq1/100000000)%10 + 48;
+			FreqDisplay1[4] = 32;
+			FreqDisplay1[5] = 77;
+			FreqDisplay1[6] = 72;
+			FreqDisplay1[7] = 122;
+			FreqDisplay1[8] = 0;
+		}
+		else if(Freq1 > 100000000){
+			FreqDisplay1[0] = (Freq1/100000000)%10 + 48;
+			FreqDisplay1[1] = (Freq1/10000000)%10 + 48;
+			FreqDisplay1[2] = (Freq1/1000000)%10 + 48;
+			FreqDisplay1[3] = 32;
+			FreqDisplay1[4] = 107;
+			FreqDisplay1[5] = 72;
+			FreqDisplay1[6] = 122;
+			FreqDisplay1[7] = 0;
+			FreqDisplay1[8] = 0;
+		}
+		else if(Freq1 > 10000000){
+			FreqDisplay1[0] = (Freq1/10000000)%10 + 48;
+			FreqDisplay1[1] = (Freq1/1000000)%10 + 48;
+			FreqDisplay1[2] = 46;
+			FreqDisplay1[3] = (Freq1/100000)%10 + 48;
+			FreqDisplay1[4] = 32;
+			FreqDisplay1[5] = 107;
+			FreqDisplay1[6] = 72;
+			FreqDisplay1[7] = 122;
+			FreqDisplay1[8] = 0;
+		}
+		else if(Freq1 > 1000000){
+			FreqDisplay1[0] = (Freq1/1000000)%10 + 48;
+			FreqDisplay1[1] = 46;
+			FreqDisplay1[2] = (Freq1/100000)%10 + 48;
+			FreqDisplay1[3] = (Freq1/10000)%10 + 48;
+			FreqDisplay1[4] = 32;
+			FreqDisplay1[5] = 107;
+			FreqDisplay1[6] = 72;
+			FreqDisplay1[7] = 122;
+			FreqDisplay1[8] = 0;
+		}
+		else if(Freq1 > 100000){
+			FreqDisplay1[0] = (Freq1/100000)%10 + 48;
+			FreqDisplay1[1] = (Freq1/10000)%10 + 48;
+			FreqDisplay1[2] = (Freq1/1000)%10 + 48;
+			FreqDisplay1[3] = 32;
+			FreqDisplay1[4] = 72;
+			FreqDisplay1[5] = 122;
+			FreqDisplay1[6] = 0;
+			FreqDisplay1[7] = 0;
+			FreqDisplay1[8] = 0;
+		}
+		else if(Freq1 > 10000){
+			FreqDisplay1[0] = (Freq1/10000)%10 + 48;
+			FreqDisplay1[1] = (Freq1/1000)%10 + 48;
+			FreqDisplay1[2] = 46;
+			FreqDisplay1[3] = (Freq1/100)%10 + 48;
+			FreqDisplay1[4] = 32;
+			FreqDisplay1[5] = 72;
+			FreqDisplay1[6] = 122;
+			FreqDisplay1[7] = 0;
+			FreqDisplay1[8] = 0;
+		}
+		else if(Freq1 > 1000){
+			FreqDisplay1[0] = (Freq1/1000)%10 + 48;
+			FreqDisplay1[1] = 46;
+			FreqDisplay1[2] = (Freq1/100)%10 + 48;
+			FreqDisplay1[3] = (Freq1/10)%10 + 48;
+			FreqDisplay1[4] = 32;
+			FreqDisplay1[5] = 72;
+			FreqDisplay1[6] = 122;
+			FreqDisplay1[7] = 0;
+			FreqDisplay1[8] = 0;
+		}
+		else{
+			FreqDisplay1[0] = (Freq1/100)%10 + 48;
+			FreqDisplay1[1] = (Freq1/10)%10 + 48;
+			FreqDisplay1[2] = Freq1%10 + 48;
+			FreqDisplay1[3] = 32;
+			FreqDisplay1[4] = 109;;
+			FreqDisplay1[5] = 72;
+			FreqDisplay1[6] = 122;
+			FreqDisplay1[7] = 0;
+			FreqDisplay1[8] = 0;
+			if(FreqDisplay1[0] == 48){
+				FreqDisplay1[0] = 32;
+				if(FreqDisplay1[1] == 48){
+					FreqDisplay1[1] = 32;
+				}
+			}
+		}
+	}
+	else{
+		FreqDisplay1[0] = 72;
+		FreqDisplay1[1] = 122;
+		FreqDisplay1[2] = 0;
+	}
+
+	if(Ch2on == 1){
+		if(Freq2 > 1000000000){
+			FreqDisplay2[0] = (Freq2/1000000000)%10 + 48;
+			FreqDisplay2[1] = 46;
+			FreqDisplay2[2] = (Freq2/1000000000)%10 + 48;
+			FreqDisplay2[3] = (Freq2/100000000)%10 + 48;
+			FreqDisplay2[4] = 32;
+			FreqDisplay2[5] = 77;
+			FreqDisplay2[6] = 72;
+			FreqDisplay2[7] = 122;
+			FreqDisplay2[8] = 0;
+		}
+		else if(Freq2 > 100000000){
+			FreqDisplay2[0] = (Freq2/100000000)%10 + 48;
+			FreqDisplay2[1] = (Freq2/10000000)%10 + 48;
+			FreqDisplay2[2] = (Freq2/1000000)%10 + 48;
+			FreqDisplay2[3] = 32;
+			FreqDisplay2[4] = 107;
+			FreqDisplay2[5] = 72;
+			FreqDisplay2[6] = 122;
+			FreqDisplay2[7] = 0;
+			FreqDisplay2[8] = 0;
+		}
+		else if(Freq2 > 10000000){
+			FreqDisplay2[0] = (Freq2/10000000)%10 + 48;
+			FreqDisplay2[1] = (Freq2/1000000)%10 + 48;
+			FreqDisplay2[2] = 46;
+			FreqDisplay2[3] = (Freq2/100000)%10 + 48;
+			FreqDisplay2[4] = 32;
+			FreqDisplay2[5] = 107;
+			FreqDisplay2[6] = 72;
+			FreqDisplay2[7] = 122;
+			FreqDisplay2[8] = 0;
+		}
+		else if(Freq2 > 1000000){
+			FreqDisplay2[0] = (Freq2/1000000)%10 + 48;
+			FreqDisplay2[1] = 46;
+			FreqDisplay2[2] = (Freq2/100000)%10 + 48;
+			FreqDisplay2[3] = (Freq2/10000)%10 + 48;
+			FreqDisplay2[4] = 32;
+			FreqDisplay2[5] = 107;
+			FreqDisplay2[6] = 72;
+			FreqDisplay2[7] = 122;
+			FreqDisplay2[8] = 0;
+		}
+		else if(Freq2 > 100000){
+			FreqDisplay2[0] = (Freq2/100000)%10 + 48;
+			FreqDisplay2[1] = (Freq2/10000)%10 + 48;
+			FreqDisplay2[2] = (Freq2/1000)%10 + 48;
+			FreqDisplay2[3] = 32;
+			FreqDisplay2[4] = 72;
+			FreqDisplay2[5] = 122;
+			FreqDisplay2[6] = 0;
+			FreqDisplay2[7] = 0;
+			FreqDisplay2[8] = 0;
+		}
+		else if(Freq2 > 10000){
+			FreqDisplay2[0] = (Freq2/10000)%10 + 48;
+			FreqDisplay2[1] = (Freq2/1000)%10 + 48;
+			FreqDisplay2[2] = 46;
+			FreqDisplay2[3] = (Freq2/100)%10 + 48;
+			FreqDisplay2[4] = 32;
+			FreqDisplay2[5] = 72;
+			FreqDisplay2[6] = 122;
+			FreqDisplay2[7] = 0;
+			FreqDisplay2[8] = 0;
+		}
+		else if(Freq2 > 1000){
+			FreqDisplay2[0] = (Freq2/1000)%10 + 48;
+			FreqDisplay2[1] = 46;
+			FreqDisplay2[2] = (Freq2/100)%10 + 48;
+			FreqDisplay2[3] = (Freq2/10)%10 + 48;
+			FreqDisplay2[4] = 32;
+			FreqDisplay2[5] = 72;
+			FreqDisplay2[6] = 122;
+			FreqDisplay2[7] = 0;
+			FreqDisplay2[8] = 0;
+		}
+		else{
+			FreqDisplay2[0] = (Freq2/100)%10 + 48;
+			FreqDisplay2[1] = (Freq2/10)%10 + 48;
+			FreqDisplay2[2] = Freq2%10 + 48;
+			FreqDisplay2[3] = 32;
+			FreqDisplay2[4] = 109;
+			FreqDisplay2[5] = 72;
+			FreqDisplay2[6] = 122;
+			FreqDisplay2[7] = 0;
+			FreqDisplay2[8] = 0;
+			if(FreqDisplay2[0] == 48){
+				FreqDisplay2[0] = 32;
+				if(FreqDisplay2[1] == 48){
+					FreqDisplay2[1] = 32;
+				}
+			}
+		}
+	}
+	else{
+		FreqDisplay2[0] = 72;
+		FreqDisplay2[1] = 122;
+		FreqDisplay2[2] = 0;
+	}
+
+	PushButtonTextSet(&g_psBotButtons[0], FreqDisplay1);
+	PushButtonTextSet(&g_psBotButtons[1], FreqDisplay2);
+
+	Amp1[2] = Amp1[1] - Amp1[0];
+	Amp2[2] = Amp2[1] - Amp2[0];
+
+	Amp1[3] = (Amp1[2]/pixel_divider1)*mvpixel[Mag1];
+	Amp2[3] = (Amp2[2]/pixel_divider2)*mvpixel[Mag2];
+
+	if(Ch1on == 1){
+		if(Amp1[3] < 1000){
+			MagDisplay1[0] = (Amp1[3]/100)%10 + 48;
+			MagDisplay1[1] = (Amp1[3]/10)%10 + 48;
+			MagDisplay1[2] = Amp1[3]%10 + 48;
+			MagDisplay1[3] = 32;
+			MagDisplay1[4] = 109;
+			MagDisplay1[5] = 86;
+			MagDisplay1[6] = 0;
+			if(MagDisplay1[0] == 48){
+				MagDisplay1[0] = 32;
+				if(MagDisplay1[1] == 48){
+					MagDisplay1[1] = 32;
+				}
+			}
+		}
+		else{
+			MagDisplay1[0] = (Amp1[3]/10000)%10 + 48;
+			MagDisplay1[1] = (Amp1[3]/1000)%10 + 48;
+			MagDisplay1[2] = 46;
+			MagDisplay1[3] = (Amp1[3]/100)%10 + 48;
+			MagDisplay1[4] = (Amp1[3]/10)%10 + 48;
+			MagDisplay1[5] = 32;
+			MagDisplay1[6] = 86;
+			if(MagDisplay1[0] == 48){
+				MagDisplay1[0] = 32;
+				if(MagDisplay1[1] == 48){
+					MagDisplay1[1] = 32;
+				}
+			}
+		}
+	}
+	else{
+		MagDisplay1[0] = 86;
+		MagDisplay1[1] = 0;
+	}
+	if(Ch2on == 1){
+		if(Amp2[3] < 1000){
+			MagDisplay2[0] = (Amp2[3]/100)%10 + 48;
+			MagDisplay2[1] = (Amp2[3]/10)%10 + 48;
+			MagDisplay2[2] = Amp2[3]%10 + 48;
+			MagDisplay2[3] = 32;
+			MagDisplay2[4] = 109;
+			MagDisplay2[5] = 86;
+			MagDisplay2[6] = 0;
+			if(MagDisplay2[0] == 48){
+				MagDisplay2[0] = 32;
+				if(MagDisplay2[1] == 48){
+					MagDisplay2[1] = 32;
+				}
+			}
+		}
+		else{
+			MagDisplay2[0] = (Amp2[3]/10000)%10 + 48;
+			MagDisplay2[1] = (Amp2[3]/1000)%10 + 48;
+			MagDisplay2[2] = 46;
+			MagDisplay2[3] = (Amp2[3]/100)%10 + 48;
+			MagDisplay2[4] = (Amp2[3]/10)%10 + 48;
+			MagDisplay2[5] = 32;
+			MagDisplay2[6] = 86;
+			if(MagDisplay2[0] == 48){
+				MagDisplay2[0] = 32;
+				if(MagDisplay2[1] == 48){
+					MagDisplay2[1] = 32;
+				}
+			}
+		}
+	}
+	else{
+		MagDisplay2[0] = 86;
+		MagDisplay2[1] = 0;
+	}
+	PushButtonTextSet(&g_psBotButtons[2], MagDisplay1);
+	PushButtonTextSet(&g_psBotButtons[3], MagDisplay2);
 }
 //End Tommy Part////////////////////////////////////////////////////////////////////
