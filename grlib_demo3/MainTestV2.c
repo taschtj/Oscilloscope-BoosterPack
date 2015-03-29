@@ -81,7 +81,7 @@
 //
 //*****************************************************************************
 #define MEM_BUFFER_SIZE         1024/2
-#define MaxSize					1024*8 // Must be multiple of MEM_BUFFER_SIZE
+#define MaxSize					1024*12 // Must be multiple of MEM_BUFFER_SIZE
 
 //*****************************************************************************
 //
@@ -152,17 +152,20 @@ uint32_t totalsA[SERIES_LENGTH], totalsB[SERIES_LENGTH];
 uint16_t totalA, totalB;
 uint32_t i = 0, j = 0, f = 0, k = 0, m = 0, l = 0, EPIDivide = 5;
 uint16_t t= 0;
-uint16_t Amp1[3], Amp2[3], Freq1, Freq2, NumAvg = 10, *PTriggerLevel, TriggerLevel = 1800;
+uint16_t Amp1[4], Amp2[4], Freq1, Freq2, NumAvg = 8, *PTriggerLevel, TriggerLevel = 1800;
 uint32_t receive[24], oppreceive[24], total, CountSize = 1024, count = 0, pixel_total = 0, pixel_average;
 uint8_t pri, alt, TriggerStart = 0, Trigger = 0, GoThrough = 0, CaptureMode = 0, TriggerMode = 0, begin = 0, TriggerSource = 1;
 uint16_t NumSkip = 2, TriggerPosition = 0, old1[SERIES_LENGTH], old2[SERIES_LENGTH], pixels[SERIES_LENGTH], pixels2[SERIES_LENGTH], midlevel1;
 uint16_t midlevel1, midlevel2, level1 = 80, level2 = 160;
 uint32_t ui32Mode;
-uint32_t *EPISource;
-uint8_t below = 0, above = 0, clockout = 0, stop = 0, Ch1on = 1, Ch2on = 1;
-uint8_t Mag1 = 0, Mag2 = 0, Time = 0;
-uint8_t transfer_done[2] = {0,0};
+int *EPISource;
+uint8_t below = 0, above = 0, clockout = 0, stop = 0, Ch1on = 1, Ch2on = 1, Ch1off = 0, Ch2off = 0;
+uint8_t Mag1 = 0, Mag2 = 0, Time = 0, minusbelow1 = 0, minusbelow2 = 0, minusabove1 = 0, minusabove2 = 0;
+uint8_t outbelow1 = 0, outbelow2 = 0, outabove1 = 0, outabove2 = 0;
+uint8_t transfer_done[2] = {0,0}, stopped = 0;
 float pixel_divider1 = 5.461, pixel_divider2 = 5.461;
+float mvpixel[14];
+char MagDisplay1[7], MagDisplay2[7];
 
 extern const uint8_t g_pui8Image[];
 extern const uint8_t g_pui9Image[];
@@ -375,7 +378,7 @@ tPushButtonWidget g_psBotButtons[] =
 										52, 28,
 										(PB_STYLE_OUTLINE | PB_STYLE_TEXT_OPAQUE | PB_STYLE_TEXT | PB_STYLE_FILL),
 										ClrGray, ClrWhite, ClrWhite, ClrRed,
-										g_psFontCm16, "Hz", 0, 0, 0, 0,
+										g_psFontCm16, ("Hz"), 0, 0, 0, 0,
 										DRadioFreMagnitudeC1),
 								RectangularButtonStruct(&g_sBottom,
 										g_psBotButtons + 2, 0,
@@ -390,14 +393,14 @@ tPushButtonWidget g_psBotButtons[] =
 										52, 28,
 										(PB_STYLE_OUTLINE | PB_STYLE_TEXT_OPAQUE | PB_STYLE_TEXT | PB_STYLE_FILL),
 										ClrGray, ClrWhite, ClrWhite, ClrRed,
-										g_psFontCm16, "V", 0, 0, 0, 0, DRadioVolMagnitudeC1),
+										g_psFontCm14, "V", 0, 0, 0, 0, DRadioVolMagnitudeC1),
 								RectangularButtonStruct(&g_sBottom,
 										g_psBotButtons + 4, 0,
 										&g_sKentec320x240x16_SSD2119, 159, 212,
 										52, 28,
 										(PB_STYLE_OUTLINE | PB_STYLE_TEXT_OPAQUE | PB_STYLE_TEXT | PB_STYLE_FILL),
 										ClrGray, ClrWhite, ClrWhite, ClrYellow,
-										g_psFontCm16, "V", 0, 0, 0, 0, DRadioVolMagnitudeC2),
+										g_psFontCm14, "V", 0, 0, 0, 0, DRadioVolMagnitudeC2),
 								RectangularButtonStruct(&g_sBottom,
 										g_psBotButtons + 5, 0,
 										&g_sKentec320x240x16_SSD2119, 212, 212,
@@ -412,6 +415,7 @@ tPushButtonWidget g_psBotButtons[] =
 										ClrGray, ClrWhite, ClrWhite, ClrWhite,
 										g_psFontCmss14, "Run/Stop", 0, 0, 0, 0,
 										RunStop) };
+///////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////
 //RectangularButtonStruct(&g_sTop,
 //		g_psTopButtons + 5, 0,
@@ -850,10 +854,25 @@ void AddMinusFunctionC1(tWidget *pWidget) {
 	ButtonTF = !ButtonTF;
 	if (ButtonTF) {
 
+		if(stop == 1){
+			stopped = 1;
+		}
+		else{
+			stop = 1;
+			stopped = 0;
+		}
 		WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sAddMinusC1);
+		SysCtlDelay(3);
 		WidgetPaint((tWidget * ) &g_sAddMinusC1);
 	} else {
 		ClrMyWidget();
+		if(stopped == 1){
+			stopped = 0;
+		}
+		else{
+			stop = 0;
+			stopped = 0;
+		}
 	}
 
 }
@@ -861,10 +880,24 @@ void AddMinusFunctionC2(tWidget *pWidget) {
 	ButtonTF = !ButtonTF;
 	if (ButtonTF) {
 
+		if(stop == 1){
+			stopped = 1;
+		}
+		else{
+			stop = 1;
+			stopped = 0;
+		}
 		WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sAddMinusC2);
 		WidgetPaint((tWidget * ) &g_sAddMinusC2);
 	} else {
 		ClrMyWidget();
+		if(stopped == 1){
+			stopped = 0;
+		}
+		else{
+			stop = 0;
+			stopped = 0;
+		}
 	}
 
 }
@@ -872,10 +905,24 @@ void AddMinusFunctionTime(tWidget *pWidget) {
 	ButtonTF = !ButtonTF;
 	if (ButtonTF) {
 
+		if(stop == 1){
+			stopped = 1;
+		}
+		else{
+			stop = 1;
+			stopped = 0;
+		}
 		WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sAddMinusTime);
 		WidgetPaint((tWidget * ) &g_sAddMinusTime);
 	} else {
 		ClrMyWidget();
+		if(stopped == 1){
+			stopped = 0;
+		}
+		else{
+			stop = 0;
+			stopped = 0;
+		}
 	}
 
 }
@@ -923,11 +970,25 @@ void DRadioVolMagnitudeC2(tWidget *pWidgetR) {
 void DRadioChannels(tWidget *pWidgetR){
 	ButtonTF = !ButtonTF;
 	if (ButtonTF) {
+		if(stop == 1){
+			stopped = 1;
+		}
+		else{
+			stop = 1;
+			stopped = 0;
+		}
 		WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sContainerChannels);
-			WidgetPaint((tWidget * )&g_sContainerChannels);
+		WidgetPaint((tWidget * )&g_sContainerChannels);
 	}
 	else {
 		ClrMyWidget();
+		if(stopped == 1){
+			stopped = 0;
+		}
+		else{
+			stop = 0;
+			stopped = 0;
+		}
 	}
 }
 void ChannelSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
@@ -940,13 +1001,16 @@ void ChannelSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
 	      }
 	  }
 	  if(ui32Idx==0){
-
+		  Ch1on = 1;
+		  Ch2on = 0;
 	  }
 	  else if(ui32Idx==1){
-
+		  Ch1on = 0;
+		  Ch2on = 1;
 	  }
 	  else{
-
+		  Ch1on = 1;
+		  Ch2on = 1;
 	  }
 }
 
@@ -955,10 +1019,24 @@ void DRadioMenu(tWidget *pWidgetR) {
 	ButtonTF = !ButtonTF;
 	if (ButtonTF) {
 
+		if(stop == 1){
+			stopped = 1;
+		}
+		else{
+			stop = 1;
+			stopped = 0;
+		}
 		WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sContainerMenu);
 		WidgetPaint((tWidget * )&g_sContainerMenu);
 	} else {
 		ClrMyWidget();
+		if(stopped == 1){
+			stopped = 0;
+		}
+		else{
+			stop = 0;
+			stopped = 0;
+		}
 	}
 
 }
@@ -968,30 +1046,164 @@ void DWaveForm(tWidget *pWidgetR, tContext *psContext) {
 	for (x = 1; x < SERIES_LENGTH; x++) {
 		GrContextForegroundSet(&sContext, ClrBlack);
 		//GrCircleFill(&sContext, x, old1[x-1], 1);
-		GrLineDraw(&sContext,x-1,old1[x-1],x,old1[x]);
-		GrLineDraw(&sContext,x-1,old2[x-1],x,old2[x]);
+		if(Ch1on == 1){
+			Ch1off = 0;
+			GrLineDraw(&sContext,x-1,old1[x-1],x,old1[x]);
+		}
+		else if(Ch1on == 0 && Ch1off == 0){
+			  ClrMyWidget();
+			  Ch1off = 1;
+		}
+		if(Ch2on == 1){
+			Ch2off = 0;
+			GrLineDraw(&sContext,x-1,old2[x-1],x,old2[x]);
+		}
+		else if(Ch2on == 0 && Ch2off == 0){
+			  ClrMyWidget();
+			  Ch2off = 1;
+		}
+
 		//GrCircleFill(&sContext, x, old2[x-1], 1);
+
 		if(Ch2on == 1){
 			GrContextForegroundSet(&sContext, ClrYellow);
 			if(stop == 1){
-				GrCircleFill(&sContext, x, old2[x], 1);
+				GrLineDraw(&sContext,x-1,old2[x-1],x,old2[x]);
+				//GrCircleFill(&sContext, x, old2[x], 1);
 			}
 			else{
-				if((midlevel2 - pixels2[x] / pixel_divider2) < 29)
-					GrCircleFill(&sContext, x, old2[x] = 29, 1);
-				else if ((midlevel2 - pixels2[x] / pixel_divider2) > 210)
-					GrCircleFill(&sContext, x, old2[x] = 210, 1);
-				else
+				if((midlevel2 - pixels2[x-1] / pixel_divider2) < 29){
+					//GrCircleFill(&sContext, x, old2[x1] = 29, 1);
+					minusbelow2 = 1;
+				}
+				else{
+					minusbelow2 = 0;
+				}
+				if ((midlevel2 - pixels2[x-1] / pixel_divider2) > 210){
+					//GrCircleFill(&sContext, x, old2[x] = 210, 1);
+					minusabove2 = 1;
+				}
+				else{
+					minusabove2 = 0;
+				}
+				if((midlevel2 - pixels2[x] / pixel_divider2) < 29){
+					//GrCircleFill(&sContext, x, old2[x1] = 29, 1);
+					outbelow2 = 1;
+				}
+				else{
+					outbelow2 = 0;
+				}
+				if ((midlevel2 - pixels2[x] / pixel_divider2) > 210){
+					//GrCircleFill(&sContext, x, old2[x] = 210, 1);
+					outabove2 = 1;
+				}
+				else{
+					outabove2 = 0;
+				}
+
+				if(minusbelow2 == 0 && minusabove2 == 0 && outbelow2 == 0 && outabove2 == 0){
 					//GrCircleFill(&sContext, x, old2[x] = midlevel2 - pixels2[x] / pixel_divider2, 1);
 					GrLineDraw(&sContext,x-1,old2[x-1]=midlevel2 - pixels2[x-1] / pixel_divider2,x,midlevel2 - pixels2[x] / pixel_divider2);
+				}
+				else if(minusbelow2 == 1 && outbelow2 == 0 && outabove2 == 0){
+					GrLineDraw(&sContext,x-1,old2[x-1]=29,x,midlevel2 - pixels2[x] / pixel_divider2);
+				}
+				else if(minusbelow2 == 1 && outbelow2 == 1){
+					GrLineDraw(&sContext,x-1,old2[x-1]=29,x,29);
+				}
+				else if(minusbelow2 == 1 && outabove2 == 1){
+					GrLineDraw(&sContext,x-1,old2[x-1]=29,x,210);
+				}
+				else if(minusabove2 == 1 && outbelow2 == 0 && outabove2 == 0){
+					GrLineDraw(&sContext,x-1,old2[x-1]=210,x,midlevel2 - pixels2[x] / pixel_divider2);
+				}
+				else if(minusabove2 == 1 && outbelow2 == 1){
+					GrLineDraw(&sContext,x-1,old2[x-1]=210,x,29);
+				}
+				else if(minusabove2 == 1 && outabove2 == 1){
+					GrLineDraw(&sContext,x-1,old2[x-1]=210,x,210);
+				}
+				else if(outbelow2 == 1 && minusabove2 == 0 && minusbelow2 == 0){
+					GrLineDraw(&sContext,x-1,old2[x-1]=midlevel2 - pixels2[x-1] / pixel_divider2,x,29);
+				}
+				else if(outabove2 == 1 && minusabove2 == 0 && minusbelow2 == 0){
+					GrLineDraw(&sContext,x-1,old2[x-1]=midlevel2 - pixels2[x-1] / pixel_divider2,x,210);
+				}
+				else{
+					GrLineDraw(&sContext,x-1,old2[x-1]=210,x,210);
+				}
 			}
 		}
+
 		if(Ch1on == 1){
 			GrContextForegroundSet(&sContext, ClrRed);
 			if(stop == 1){
-				GrCircleFill(&sContext, x, old1[x],1);
+				GrLineDraw(&sContext,x-1,old1[x-1],x,old1[x]);
+				//GrCircleFill(&sContext, x, old1[x],1);
 			}
 			else{
+				if((midlevel1 - pixels[x-1] / pixel_divider1) < 29){
+					//GrCircleFill(&sContext, x, old1[x1] = 29, 1);
+					minusbelow1 = 1;
+				}
+				else{
+					minusbelow1 = 0;
+				}
+				if ((midlevel1 - pixels[x-1] / pixel_divider1) > 210){
+					//GrCircleFill(&sContext, x, old2[x] = 210, 1);
+					minusabove1 = 1;
+				}
+				else{
+					minusabove1 = 0;
+				}
+				if((midlevel1 - pixels[x] / pixel_divider1) < 29){
+					//GrCircleFill(&sContext, x, old2[x1] = 29, 1);
+					outbelow1 = 1;
+				}
+				else{
+					outbelow1 = 0;
+				}
+				if ((midlevel1 - pixels[x] / pixel_divider1) > 210){
+					//GrCircleFill(&sContext, x, old2[x] = 210, 1);
+					outabove1 = 1;
+				}
+				else{
+					outabove1 = 0;
+				}
+
+				if(minusbelow1 == 0 && minusabove1 == 0 && outbelow1 == 0 && outabove1 == 0){
+					//GrCircleFill(&sContext, x, old2[x] = midlevel2 - pixels2[x] / pixel_divider2, 1);
+					GrLineDraw(&sContext,x-1,old1[x-1]=midlevel1 - pixels[x-1] / pixel_divider1,x,midlevel1 - pixels[x] / pixel_divider1);
+				}
+				else if(minusbelow1 == 1 && outbelow1 == 0 && outabove1 == 0){
+					GrLineDraw(&sContext,x-1,old1[x-1]=29,x,midlevel1 - pixels[x] / pixel_divider1);
+				}
+				else if(minusbelow1 == 1 && outbelow1 == 1){
+					GrLineDraw(&sContext,x-1,old1[x-1]=29,x,29);
+				}
+				else if(minusbelow1 == 1 && outabove1 == 1){
+					GrLineDraw(&sContext,x-1,old1[x-1]=29,x,210);
+				}
+				else if(minusabove1 == 1 && outbelow1 == 0 && outabove1 == 0){
+					GrLineDraw(&sContext,x-1,old1[x-1]=210,x,midlevel1 - pixels[x] / pixel_divider1);
+				}
+				else if(minusabove1 == 1 && outbelow1 == 1){
+					GrLineDraw(&sContext,x-1,old1[x-1]=210,x,29);
+				}
+				else if(minusabove1 == 1 && outabove1 == 1){
+					GrLineDraw(&sContext,x-1,old1[x-1]=210,x,210);
+				}
+				else if(outbelow1 == 1 && minusabove1 == 0 && minusbelow1 == 0){
+					GrLineDraw(&sContext,x-1,old1[x-1]=midlevel1 - pixels[x-1] / pixel_divider1,x,29);
+				}
+				else if(outabove1 == 1 && minusabove1 == 0 && minusbelow1 == 0){
+					GrLineDraw(&sContext,x-1,old1[x-1]=midlevel1 - pixels[x-1] / pixel_divider1,x,210);
+				}
+				else{
+					GrLineDraw(&sContext,x-1,old1[x-1]=210,x,210);
+				}
+			}
+			/*else{
 				if((midlevel1 - pixels[x] / pixel_divider1) < 29)
 					GrCircleFill(&sContext, x, old1[x] = 29,1);
 				else if ((midlevel1 - pixels[x] / pixel_divider1) > 210)
@@ -999,9 +1211,15 @@ void DWaveForm(tWidget *pWidgetR, tContext *psContext) {
 				else
 					GrLineDraw(&sContext,x-1,old1[x-1]=midlevel1 - pixels[x-1] / pixel_divider1,x,midlevel1 - pixels[x] / pixel_divider1);
 					//GrCircleFill(&sContext, x, old1[x] = midlevel1 - pixels[x] / pixel_divider1,1);
-			}
+			}*/
 		}
+
 	}
+	GrContextForegroundSet(&sContext, ClrBlack);
+	GrLineDraw(&sContext,319,29,319,210);
+	GrLineDraw(&sContext,318,29,318,210);
+	GrLineDraw(&sContext,317,29,317,210);
+	//GrLineDraw(&sContext,316,29,316,210);
 	GrContextForegroundSet(&sContext, ClrWhite);
 	GrCircleFill(&sContext, 160, 119, 3);
 //////////////////////////////////////////////////////////////////////
@@ -1021,6 +1239,13 @@ void DWaveForm(tWidget *pWidgetR, tContext *psContext) {
 void TriggerFunction(tWidget *pWidget){
 	ButtonTF = !ButtonTF;
 	if (ButtonTF) {
+		if(stop == 1){
+			stopped = 1;
+		}
+		else{
+			stop = 1;
+			stopped = 0;
+		}
 		WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sTriggerSlider);
 
 		//WidgetAdd(WIDGET_ROOT, (tWidget *) &CanvasForLine);
@@ -1031,6 +1256,13 @@ void TriggerFunction(tWidget *pWidget){
 		//WidgetPaint((tWidget *)&CanvasForLine);
 	} else {
 		//WidgetRemove((tWidget *)&CanvasForLine);
+		if(stopped == 1){
+			stopped = 0;
+		}
+		else{
+			stop = 0;
+			stopped = 0;
+		}
 		ClrMyWidget();
 	}
 }
@@ -1081,7 +1313,6 @@ int main(void) {
 	ui32SysClkFreq = SysCtlClockFreqSet((SYSCTL_XTAL_25MHZ |
 	SYSCTL_OSC_MAIN | SYSCTL_USE_PLL |
 	SYSCTL_CFG_VCO_480), 120000000);
-
 	tempMagVolDivC1 = magVolDivC1 + 2;
 	tempMagVolDivC2 = magVolDivC2 + 2;
 	tempTimVolDivC1 = timVolDivC1 + 1;
@@ -1109,7 +1340,8 @@ int main(void) {
 	WidgetPaint(WIDGET_ROOT);
 
 	setup();
-    WidgetPaint(WIDGET_ROOT);
+
+	WidgetPaint(WIDGET_ROOT);
 	while (1) {
 
 		if (transfer_done[0] == 1) {
@@ -1288,20 +1520,20 @@ int main(void) {
 
 						if(TriggerMode == 0){
 							if(TriggerSource == 1){
-								if(values[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 5))
+								if(values[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 2))
 									below = 1;
 
-								if(values[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 5) && below == 1){
+								if(values[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 2) && below == 1){
 									TriggerStart = 1;
 									Trigger = 1;
 									below = 0;
 								}
 							}
 							else
-								if(values2[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 5))
+								if(values2[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 2))
 									below = 1;
 
-								if(values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 5) && below == 1){
+								if(values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 2) && below == 1){
 									TriggerStart = 1;
 									Trigger = 1;
 									below = 0;
@@ -1309,20 +1541,20 @@ int main(void) {
 						}
 						else if(TriggerMode == 1){
 							if(TriggerSource == 1){
-								if(values[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 5))
+								if(values[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 2))
 									above = 1;
 
-								if(values[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 5) && above == 1){
+								if(values[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 2) && above == 1){
 									TriggerStart = 1;
 									Trigger = 1;
 									above = 0;
 								}
 							}
 							else
-								if(values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 5))
+								if(values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 2))
 									above = 1;
 
-								if(values2[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 5) && above == 1){
+								if(values2[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 2) && above == 1){
 									TriggerStart = 1;
 									Trigger = 1;
 									above = 0;
@@ -1331,7 +1563,7 @@ int main(void) {
 
 						if(TriggerStart == 1){
 							if(CaptureMode == 0){
-								/*if(begin == 0){
+								if(begin == 0){
 									begin=1;
 									for(i=0;i<TriggerPosition*(NumSkip+1);i=i+NumSkip+1){
 										if((int32_t) (f + k*MEM_BUFFER_SIZE - TriggerPosition + i) < 0){
@@ -1341,7 +1573,7 @@ int main(void) {
 											pixels[i] = values[f + k*MEM_BUFFER_SIZE - TriggerPosition + i];
 										}
 									}
-								}*/
+								}
 								if(j<NumSkip){
 									j++;
 								}
@@ -1353,6 +1585,7 @@ int main(void) {
 										m++;
 									}
 									else{
+										// Determine Max and Min values then evaluate difference between them
 										Amp1[1] = 0;
 										Amp1[0] = 4097;
 										Amp2[1] = 0;
@@ -1373,6 +1606,93 @@ int main(void) {
 										}
 										Amp1[2] = Amp1[1] - Amp1[0];
 										Amp2[2] = Amp2[1] - Amp2[0];
+										if(Mag1 > 2){
+											Amp1[3] = (Amp1[2]/pixel_divider1)*mvpixel[Mag1];
+										}
+										else{
+											Amp1[3] = (Amp1[2]/pixel_divider1)/mvpixel[Mag1];
+										}
+										if(Mag2 > 2){
+											Amp2[3] = (Amp2[2]/pixel_divider2)*mvpixel[Mag2];
+										}
+										else{
+											Amp2[3] = (Amp2[2]/pixel_divider2)/mvpixel[Mag2];
+										}
+										if(Ch1on == 1){
+											if(Amp1[3] < 1000){
+												MagDisplay1[0] = (Amp1[3]/100)%10 + 48;
+												MagDisplay1[1] = (Amp1[3]/10)%10 + 48;
+												MagDisplay1[2] = Amp1[3]%10 + 48;
+												MagDisplay1[3] = 32;
+												MagDisplay1[4] = 109;
+												MagDisplay1[5] = 86;
+												MagDisplay1[6] = 0;
+												if(MagDisplay1[0] == 48){
+													MagDisplay1[0] = 32;
+													if(MagDisplay1[1] == 48){
+														MagDisplay1[1] = 32;
+													}
+												}
+											}
+											else{
+												MagDisplay1[0] = (Amp1[3]/10000)%10 + 48;
+												MagDisplay1[1] = (Amp1[3]/1000)%10 + 48;
+												MagDisplay1[2] = 46;
+												MagDisplay1[3] = (Amp1[3]/100)%10 + 48;
+												MagDisplay1[4] = (Amp1[3]/10)%10 + 48;
+												MagDisplay1[5] = 32;
+												MagDisplay1[6] = 86;
+												if(MagDisplay1[0] == 48){
+													MagDisplay1[0] = 32;
+													if(MagDisplay1[1] == 48){
+														MagDisplay1[1] = 32;
+													}
+												}
+											}
+										}
+										else{
+											MagDisplay1[0] = 86;
+											MagDisplay1[1] = 0;
+										}
+										if(Ch2on == 1){
+											if(Amp2[3] < 1000){
+												MagDisplay2[0] = (Amp2[3]/100)%10 + 48;
+												MagDisplay2[1] = (Amp2[3]/10)%10 + 48;
+												MagDisplay2[2] = Amp2[3]%10 + 48;
+												MagDisplay2[3] = 32;
+												MagDisplay2[4] = 109;
+												MagDisplay2[5] = 86;
+												MagDisplay2[6] = 0;
+												if(MagDisplay2[0] == 48){
+													MagDisplay2[0] = 32;
+													if(MagDisplay2[1] == 48){
+														MagDisplay2[1] = 32;
+													}
+												}
+											}
+											else{
+												MagDisplay2[0] = (Amp2[3]/10000)%10 + 48;
+												MagDisplay2[1] = (Amp2[3]/1000)%10 + 48;
+												MagDisplay2[2] = 46;
+												MagDisplay2[3] = (Amp2[3]/100)%10 + 48;
+												MagDisplay2[4] = (Amp2[3]/10)%10 + 48;
+												MagDisplay2[5] = 32;
+												MagDisplay2[6] = 86;
+												if(MagDisplay2[0] == 48){
+													MagDisplay2[0] = 32;
+													if(MagDisplay2[1] == 48){
+														MagDisplay2[1] = 32;
+													}
+												}
+											}
+										}
+										else{
+											MagDisplay2[0] = 86;
+											MagDisplay2[1] = 0;
+										}
+										PushButtonTextSet(&g_psBotButtons[2], MagDisplay1);
+										PushButtonTextSet(&g_psBotButtons[3], MagDisplay2);
+
 										m = 0;
 										begin = 0;
 										TriggerStart = 0;
@@ -1397,9 +1717,9 @@ int main(void) {
 									else{
 										j++;
 										m=0;
-										totalsA[m] = totalsA[m]+ values[f + k*MEM_BUFFER_SIZE];
-										totalsB[m] = totalsB[m]+ values2[f + k*MEM_BUFFER_SIZE];
-										m++;
+										//totalsA[m] = totalsA[m]+ values[f + k*MEM_BUFFER_SIZE];
+										//totalsB[m] = totalsB[m]+ values2[f + k*MEM_BUFFER_SIZE];
+										//m++;
 										TriggerStart = 0;
 									}
 								}
@@ -1437,6 +1757,92 @@ int main(void) {
 									}
 									Amp1[2] = Amp1[1] - Amp1[0];
 									Amp2[2] = Amp2[1] - Amp2[0];
+									if(Mag1 > 2){
+										Amp1[3] = (Amp1[2]/pixel_divider1)*mvpixel[Mag1];
+									}
+									else{
+										Amp1[3] = (Amp1[2]/pixel_divider1)/mvpixel[Mag1];
+									}
+									if(Mag2 > 2){
+										Amp2[3] = (Amp2[2]/pixel_divider2)*mvpixel[Mag2];
+									}
+									else{
+										Amp2[3] = (Amp2[2]/pixel_divider2)/mvpixel[Mag2];
+									}
+									if(Ch1on == 1){
+										if(Amp1[3] < 1000){
+											MagDisplay1[0] = (Amp1[3]/100)%10 + 48;
+											MagDisplay1[1] = (Amp1[3]/10)%10 + 48;
+											MagDisplay1[2] = Amp1[3]%10 + 48;
+											MagDisplay1[3] = 32;
+											MagDisplay1[4] = 109;
+											MagDisplay1[5] = 86;
+											MagDisplay1[6] = 0;
+											if(MagDisplay1[0] == 48){
+												MagDisplay1[0] = 32;
+												if(MagDisplay1[1] == 48){
+													MagDisplay1[1] = 32;
+												}
+											}
+										}
+										else{
+											MagDisplay1[0] = (Amp1[3]/10000)%10 + 48;
+											MagDisplay1[1] = (Amp1[3]/1000)%10 + 48;
+											MagDisplay1[2] = 46;
+											MagDisplay1[3] = (Amp1[3]/100)%10 + 48;
+											MagDisplay1[4] = (Amp1[3]/10)%10 + 48;
+											MagDisplay1[5] = 32;
+											MagDisplay1[6] = 86;
+											if(MagDisplay1[0] == 48){
+												MagDisplay1[0] = 32;
+												if(MagDisplay1[1] == 48){
+													MagDisplay1[1] = 32;
+												}
+											}
+										}
+									}
+									else{
+										MagDisplay1[0] = 86;
+										MagDisplay1[1] = 0;
+									}
+									if(Ch2on == 1){
+										if(Amp2[3] < 1000){
+											MagDisplay2[0] = (Amp2[3]/100)%10 + 48;
+											MagDisplay2[1] = (Amp2[3]/10)%10 + 48;
+											MagDisplay2[2] = Amp2[3]%10 + 48;
+											MagDisplay2[3] = 32;
+											MagDisplay2[4] = 109;
+											MagDisplay2[5] = 86;
+											MagDisplay2[6] = 0;
+											if(MagDisplay2[0] == 48){
+												MagDisplay2[0] = 32;
+												if(MagDisplay2[1] == 48){
+													MagDisplay2[1] = 32;
+												}
+											}
+										}
+										else{
+											MagDisplay2[0] = (Amp2[3]/10000)%10 + 48;
+											MagDisplay2[1] = (Amp2[3]/1000)%10 + 48;
+											MagDisplay2[2] = 46;
+											MagDisplay2[3] = (Amp2[3]/100)%10 + 48;
+											MagDisplay2[4] = (Amp2[3]/10)%10 + 48;
+											MagDisplay2[5] = 32;
+											MagDisplay2[6] = 86;
+											if(MagDisplay2[0] == 48){
+												MagDisplay2[0] = 32;
+												if(MagDisplay2[1] == 48){
+													MagDisplay2[1] = 32;
+												}
+											}
+										}
+									}
+									else{
+										MagDisplay2[0] = 86;
+										MagDisplay2[1] = 0;
+									}
+									PushButtonTextSet(&g_psBotButtons[2], MagDisplay1);
+									PushButtonTextSet(&g_psBotButtons[3], MagDisplay2);
 									m = 0;
 									begin = 0;
 									TriggerStart = 0;
@@ -1456,10 +1862,125 @@ int main(void) {
 					}
 
 					if(GoThrough >= 10){
-						for(i=SERIES_LENGTH;i>0;i--){
-							pixels[SERIES_LENGTH-i] = values[f + k*MEM_BUFFER_SIZE - i];
-							pixels2[SERIES_LENGTH-i] = values2[f + k*MEM_BUFFER_SIZE - i];
+						/*for(i=SERIES_LENGTH;i>0;i--){
+							if((int32_t) (f + k*MEM_BUFFER_SIZE - i*(NumSkip+1)) < 0){
+								pixels[i] = values[MaxSize - (f + k*MEM_BUFFER_SIZE + i)];
+							}
+							else{
+								pixels[i] = values[f + k*MEM_BUFFER_SIZE - i*(NumSkip+1)];
+							}
 						}
+						for(i=SERIES_LENGTH*(NumSkip+1);i>0;i=i-(NumSkip+1)){
+							pixels[SERIES_LENGTH-i] = values[f + k*MEM_BUFFER_SIZE - i*(NumSkip+1)];
+							pixels2[SERIES_LENGTH-i] = values2[f + k*MEM_BUFFER_SIZE - i*(NumSkip+1)];
+						}*/
+						TriggerStart = 1;
+						Amp1[1] = 0;
+						Amp1[0] = 4097;
+						Amp2[1] = 0;
+						Amp2[0] = 4097;
+						for(i=0;i<SERIES_LENGTH;i++){
+							if(pixels[i] < Amp1[0]){
+								Amp1[0] = pixels[i];
+							}
+							if(pixels[i] > Amp1[1]){
+								Amp1[1] = pixels[i];
+							}
+							if(pixels2[i] < Amp2[0]){
+								Amp2[0] = pixels2[i];
+							}
+							if(pixels2[i] > Amp2[1]){
+								Amp2[1] = pixels2[i];
+							}
+						}
+						Amp1[2] = Amp1[1] - Amp1[0];
+						Amp2[2] = Amp2[1] - Amp2[0];
+						if(Mag1 > 2){
+							Amp1[3] = (Amp1[2]/pixel_divider1)*mvpixel[Mag1];
+						}
+						else{
+							Amp1[3] = (Amp1[2]/pixel_divider1)/mvpixel[Mag1];
+						}
+						if(Mag2 > 2){
+							Amp2[3] = (Amp2[2]/pixel_divider2)*mvpixel[Mag2];
+						}
+						else{
+							Amp2[3] = (Amp2[2]/pixel_divider2)/mvpixel[Mag2];
+						}
+						if(Ch1on == 1){
+							if(Amp1[3] < 1000){
+								MagDisplay1[0] = (Amp1[3]/100)%10 + 48;
+								MagDisplay1[1] = (Amp1[3]/10)%10 + 48;
+								MagDisplay1[2] = Amp1[3]%10 + 48;
+								MagDisplay1[3] = 32;
+								MagDisplay1[4] = 109;
+								MagDisplay1[5] = 86;
+								MagDisplay1[6] = 0;
+								if(MagDisplay1[0] == 48){
+									MagDisplay1[0] = 32;
+									if(MagDisplay1[1] == 48){
+										MagDisplay1[1] = 32;
+									}
+								}
+							}
+							else{
+								MagDisplay1[0] = (Amp1[3]/10000)%10 + 48;
+								MagDisplay1[1] = (Amp1[3]/1000)%10 + 48;
+								MagDisplay1[2] = 46;
+								MagDisplay1[3] = (Amp1[3]/100)%10 + 48;
+								MagDisplay1[4] = (Amp1[3]/10)%10 + 48;
+								MagDisplay1[5] = 32;
+								MagDisplay1[6] = 86;
+								if(MagDisplay1[0] == 48){
+									MagDisplay1[0] = 32;
+									if(MagDisplay1[1] == 48){
+										MagDisplay1[1] = 32;
+									}
+								}
+							}
+						}
+						else{
+							MagDisplay1[0] = 86;
+							MagDisplay1[1] = 0;
+						}
+						if(Ch2on == 1){
+							if(Amp2[3] < 1000){
+								MagDisplay2[0] = (Amp2[3]/100)%10 + 48;
+								MagDisplay2[1] = (Amp2[3]/10)%10 + 48;
+								MagDisplay2[2] = Amp2[3]%10 + 48;
+								MagDisplay2[3] = 32;
+								MagDisplay2[4] = 109;
+								MagDisplay2[5] = 86;
+								MagDisplay2[6] = 0;
+								if(MagDisplay2[0] == 48){
+									MagDisplay2[0] = 32;
+									if(MagDisplay2[1] == 48){
+										MagDisplay2[1] = 32;
+									}
+								}
+							}
+							else{
+								MagDisplay2[0] = (Amp2[3]/10000)%10 + 48;
+								MagDisplay2[1] = (Amp2[3]/1000)%10 + 48;
+								MagDisplay2[2] = 46;
+								MagDisplay2[3] = (Amp2[3]/100)%10 + 48;
+								MagDisplay2[4] = (Amp2[3]/10)%10 + 48;
+								MagDisplay2[5] = 32;
+								MagDisplay2[6] = 86;
+								if(MagDisplay2[0] == 48){
+									MagDisplay2[0] = 32;
+									if(MagDisplay2[1] == 48){
+										MagDisplay2[1] = 32;
+									}
+								}
+							}
+						}
+						else{
+							MagDisplay2[0] = 86;
+							MagDisplay2[1] = 0;
+						}
+						PushButtonTextSet(&g_psBotButtons[2], MagDisplay1);
+						PushButtonTextSet(&g_psBotButtons[3], MagDisplay2);
 					}
 
 				}
@@ -1646,20 +2167,20 @@ int main(void) {
 
 						if(TriggerMode == 0){
 							if(TriggerSource == 1){
-								if(values[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 5))
+								if(values[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 2))
 									below = 1;
 
-								if(values[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 5) && below == 1){
+								if(values[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 2) && below == 1){
 									TriggerStart = 1;
 									Trigger = 1;
 									below = 0;
 								}
 							}
 							else
-								if(values2[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 5))
+								if(values2[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 2))
 									below = 1;
 
-								if(values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 5) && below == 1){
+								if(values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 2) && below == 1){
 									TriggerStart = 1;
 									Trigger = 1;
 									below = 0;
@@ -1667,20 +2188,20 @@ int main(void) {
 						}
 						else if(TriggerMode == 1){
 							if(TriggerSource == 1){
-								if(values[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 5))
+								if(values[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 2))
 									above = 1;
 
-								if(values[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 5) && above == 1){
+								if(values[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 2) && above == 1){
 									TriggerStart = 1;
 									Trigger = 1;
 									above = 0;
 								}
 							}
 							else
-								if(values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 5))
+								if(values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] <= (*PTriggerLevel + 2))
 									above = 1;
 
-								if(values2[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 5) && above == 1){
+								if(values2[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] >= (*PTriggerLevel - 2) && above == 1){
 									TriggerStart = 1;
 									Trigger = 1;
 									above = 0;
@@ -1689,7 +2210,7 @@ int main(void) {
 
 						if(TriggerStart == 1){
 							if(CaptureMode == 0){
-								/*if(begin == 0){
+								if(begin == 0){
 									begin=1;
 									for(i=0;i<TriggerPosition*(NumSkip+1);i=i+NumSkip+1){
 										if((int32_t) (f + k*MEM_BUFFER_SIZE - TriggerPosition + i) < 0){
@@ -1699,7 +2220,7 @@ int main(void) {
 											pixels[i] = values[f + k*MEM_BUFFER_SIZE - TriggerPosition + i];
 										}
 									}
-								}*/
+								}
 								if(j<NumSkip){
 									j++;
 								}
@@ -1731,6 +2252,92 @@ int main(void) {
 										}
 										Amp1[2] = Amp1[1] - Amp1[0];
 										Amp2[2] = Amp2[1] - Amp2[0];
+										if(Mag1 > 2){
+											Amp1[3] = (Amp1[2]/pixel_divider1)*mvpixel[Mag1];
+										}
+										else{
+											Amp1[3] = (Amp1[2]/pixel_divider1)/mvpixel[Mag1];
+										}
+										if(Mag2 > 2){
+											Amp2[3] = (Amp2[2]/pixel_divider2)*mvpixel[Mag2];
+										}
+										else{
+											Amp2[3] = (Amp2[2]/pixel_divider2)/mvpixel[Mag2];
+										}
+										if(Ch1on == 1){
+											if(Amp1[3] < 1000){
+												MagDisplay1[0] = (Amp1[3]/100)%10 + 48;
+												MagDisplay1[1] = (Amp1[3]/10)%10 + 48;
+												MagDisplay1[2] = Amp1[3]%10 + 48;
+												MagDisplay1[3] = 32;
+												MagDisplay1[4] = 109;
+												MagDisplay1[5] = 86;
+												MagDisplay1[6] = 0;
+												if(MagDisplay1[0] == 48){
+													MagDisplay1[0] = 32;
+													if(MagDisplay1[1] == 48){
+														MagDisplay1[1] = 32;
+													}
+												}
+											}
+											else{
+												MagDisplay1[0] = (Amp1[3]/10000)%10 + 48;
+												MagDisplay1[1] = (Amp1[3]/1000)%10 + 48;
+												MagDisplay1[2] = 46;
+												MagDisplay1[3] = (Amp1[3]/100)%10 + 48;
+												MagDisplay1[4] = (Amp1[3]/10)%10 + 48;
+												MagDisplay1[5] = 32;
+												MagDisplay1[6] = 86;
+												if(MagDisplay1[0] == 48){
+													MagDisplay1[0] = 32;
+													if(MagDisplay1[1] == 48){
+														MagDisplay1[1] = 32;
+													}
+												}
+											}
+										}
+										else{
+											MagDisplay1[0] = 86;
+											MagDisplay1[1] = 0;
+										}
+										if(Ch2on == 1){
+											if(Amp2[3] < 1000){
+												MagDisplay2[0] = (Amp2[3]/100)%10 + 48;
+												MagDisplay2[1] = (Amp2[3]/10)%10 + 48;
+												MagDisplay2[2] = Amp2[3]%10 + 48;
+												MagDisplay2[3] = 32;
+												MagDisplay2[4] = 109;
+												MagDisplay2[5] = 86;
+												MagDisplay2[6] = 0;
+												if(MagDisplay2[0] == 48){
+													MagDisplay2[0] = 32;
+													if(MagDisplay2[1] == 48){
+														MagDisplay2[1] = 32;
+													}
+												}
+											}
+											else{
+												MagDisplay2[0] = (Amp2[3]/10000)%10 + 48;
+												MagDisplay2[1] = (Amp2[3]/1000)%10 + 48;
+												MagDisplay2[2] = 46;
+												MagDisplay2[3] = (Amp2[3]/100)%10 + 48;
+												MagDisplay2[4] = (Amp2[3]/10)%10 + 48;
+												MagDisplay2[5] = 32;
+												MagDisplay2[6] = 86;
+												if(MagDisplay2[0] == 48){
+													MagDisplay2[0] = 32;
+													if(MagDisplay2[1] == 48){
+														MagDisplay2[1] = 32;
+													}
+												}
+											}
+										}
+										else{
+											MagDisplay2[0] = 86;
+											MagDisplay2[1] = 0;
+										}
+										PushButtonTextSet(&g_psBotButtons[2], MagDisplay1);
+										PushButtonTextSet(&g_psBotButtons[3], MagDisplay2);
 										m = 0;
 										begin = 0;
 										TriggerStart = 0;
@@ -1755,9 +2362,9 @@ int main(void) {
 									else{
 										j++;
 										m=0;
-										totalsA[m] = totalsA[m]+ values[f + k*MEM_BUFFER_SIZE];
-										totalsB[m] = totalsB[m]+ values2[f + k*MEM_BUFFER_SIZE];
-										m++;
+										//totalsA[m] = totalsA[m]+ values[f + k*MEM_BUFFER_SIZE];
+										//totalsB[m] = totalsB[m]+ values2[f + k*MEM_BUFFER_SIZE];
+										//m++;
 										TriggerStart = 0;
 									}
 								}
@@ -1795,6 +2402,92 @@ int main(void) {
 									}
 									Amp1[2] = Amp1[1] - Amp1[0];
 									Amp2[2] = Amp2[1] - Amp2[0];
+									if(Mag1 > 2){
+										Amp1[3] = (Amp1[2]/pixel_divider1)*mvpixel[Mag1];
+									}
+									else{
+										Amp1[3] = (Amp1[2]/pixel_divider1)/mvpixel[Mag1];
+									}
+									if(Mag2 > 2){
+										Amp2[3] = (Amp2[2]/pixel_divider2)*mvpixel[Mag2];
+									}
+									else{
+										Amp2[3] = (Amp2[2]/pixel_divider2)/mvpixel[Mag2];
+									}
+									if(Ch1on == 1){
+										if(Amp1[3] < 1000){
+											MagDisplay1[0] = (Amp1[3]/100)%10 + 48;
+											MagDisplay1[1] = (Amp1[3]/10)%10 + 48;
+											MagDisplay1[2] = Amp1[3]%10 + 48;
+											MagDisplay1[3] = 32;
+											MagDisplay1[4] = 109;
+											MagDisplay1[5] = 86;
+											MagDisplay1[6] = 0;
+											if(MagDisplay1[0] == 48){
+												MagDisplay1[0] = 32;
+												if(MagDisplay1[1] == 48){
+													MagDisplay1[1] = 32;
+												}
+											}
+										}
+										else{
+											MagDisplay1[0] = (Amp1[3]/10000)%10 + 48;
+											MagDisplay1[1] = (Amp1[3]/1000)%10 + 48;
+											MagDisplay1[2] = 46;
+											MagDisplay1[3] = (Amp1[3]/100)%10 + 48;
+											MagDisplay1[4] = (Amp1[3]/10)%10 + 48;
+											MagDisplay1[5] = 32;
+											MagDisplay1[6] = 86;
+											if(MagDisplay1[0] == 48){
+												MagDisplay1[0] = 32;
+												if(MagDisplay1[1] == 48){
+													MagDisplay1[1] = 32;
+												}
+											}
+										}
+									}
+									else{
+										MagDisplay1[0] = 86;
+										MagDisplay1[1] = 0;
+									}
+									if(Ch2on == 1){
+										if(Amp2[3] < 1000){
+											MagDisplay2[0] = (Amp2[3]/100)%10 + 48;
+											MagDisplay2[1] = (Amp2[3]/10)%10 + 48;
+											MagDisplay2[2] = Amp2[3]%10 + 48;
+											MagDisplay2[3] = 32;
+											MagDisplay2[4] = 109;
+											MagDisplay2[5] = 86;
+											MagDisplay2[6] = 0;
+											if(MagDisplay2[0] == 48){
+												MagDisplay2[0] = 32;
+												if(MagDisplay2[1] == 48){
+													MagDisplay2[1] = 32;
+												}
+											}
+										}
+										else{
+											MagDisplay2[0] = (Amp2[3]/10000)%10 + 48;
+											MagDisplay2[1] = (Amp2[3]/1000)%10 + 48;
+											MagDisplay2[2] = 46;
+											MagDisplay2[3] = (Amp2[3]/100)%10 + 48;
+											MagDisplay2[4] = (Amp2[3]/10)%10 + 48;
+											MagDisplay2[5] = 32;
+											MagDisplay2[6] = 86;
+											if(MagDisplay2[0] == 48){
+												MagDisplay2[0] = 32;
+												if(MagDisplay2[1] == 48){
+													MagDisplay2[1] = 32;
+												}
+											}
+										}
+									}
+									else{
+										MagDisplay2[0] = 86;
+										MagDisplay2[1] = 0;
+									}
+									PushButtonTextSet(&g_psBotButtons[2], MagDisplay1);
+									PushButtonTextSet(&g_psBotButtons[3], MagDisplay2);
 									m = 0;
 									begin = 0;
 									TriggerStart = 0;
@@ -1814,10 +2507,117 @@ int main(void) {
 					}
 
 					if(GoThrough >= 10){
-						for(i=SERIES_LENGTH;i>0;i--){
+						/*for(i=SERIES_LENGTH;i>0;i--){
 							pixels[SERIES_LENGTH-i] = values[f + k*MEM_BUFFER_SIZE - i];
 							pixels2[SERIES_LENGTH-i] = values2[f + k*MEM_BUFFER_SIZE - i];
+						}*/
+						TriggerStart = 1;
+						Amp1[1] = 0;
+						Amp1[0] = 4097;
+						Amp2[1] = 0;
+						Amp2[0] = 4097;
+						for(i=0;i<SERIES_LENGTH;i++){
+							if(pixels[i] < Amp1[0]){
+								Amp1[0] = pixels[i];
+							}
+							if(pixels[i] > Amp1[1]){
+								Amp1[1] = pixels[i];
+							}
+							if(pixels2[i] < Amp2[0]){
+								Amp2[0] = pixels2[i];
+							}
+							if(pixels2[i] > Amp2[1]){
+								Amp2[1] = pixels2[i];
+							}
 						}
+						Amp1[2] = Amp1[1] - Amp1[0];
+						Amp2[2] = Amp2[1] - Amp2[0];
+						if(Mag1 > 2){
+							Amp1[3] = (Amp1[2]/pixel_divider1)*mvpixel[Mag1];
+						}
+						else{
+							Amp1[3] = (Amp1[2]/pixel_divider1)/mvpixel[Mag1];
+						}
+						if(Mag2 > 2){
+							Amp2[3] = (Amp2[2]/pixel_divider2)*mvpixel[Mag2];
+						}
+						else{
+							Amp2[3] = (Amp2[2]/pixel_divider2)/mvpixel[Mag2];
+						}
+						if(Ch1on == 1){
+							if(Amp1[3] < 1000){
+								MagDisplay1[0] = (Amp1[3]/100)%10 + 48;
+								MagDisplay1[1] = (Amp1[3]/10)%10 + 48;
+								MagDisplay1[2] = Amp1[3]%10 + 48;
+								MagDisplay1[3] = 32;
+								MagDisplay1[4] = 109;
+								MagDisplay1[5] = 86;
+								MagDisplay1[6] = 0;
+								if(MagDisplay1[0] == 48){
+									MagDisplay1[0] = 32;
+									if(MagDisplay1[1] == 48){
+										MagDisplay1[1] = 32;
+									}
+								}
+							}
+							else{
+								MagDisplay1[0] = (Amp1[3]/10000)%10 + 48;
+								MagDisplay1[1] = (Amp1[3]/1000)%10 + 48;
+								MagDisplay1[2] = 46;
+								MagDisplay1[3] = (Amp1[3]/100)%10 + 48;
+								MagDisplay1[4] = (Amp1[3]/10)%10 + 48;
+								MagDisplay1[5] = 32;
+								MagDisplay1[6] = 86;
+								if(MagDisplay1[0] == 48){
+									MagDisplay1[0] = 32;
+									if(MagDisplay1[1] == 48){
+										MagDisplay1[1] = 32;
+									}
+								}
+							}
+						}
+						else{
+							MagDisplay1[0] = 86;
+							MagDisplay1[1] = 0;
+						}
+						if(Ch2on == 1){
+							if(Amp2[3] < 1000){
+								MagDisplay2[0] = (Amp2[3]/100)%10 + 48;
+								MagDisplay2[1] = (Amp2[3]/10)%10 + 48;
+								MagDisplay2[2] = Amp2[3]%10 + 48;
+								MagDisplay2[3] = 32;
+								MagDisplay2[4] = 109;
+								MagDisplay2[5] = 86;
+								MagDisplay2[6] = 0;
+								if(MagDisplay2[0] == 48){
+									MagDisplay2[0] = 32;
+									if(MagDisplay2[1] == 48){
+										MagDisplay2[1] = 32;
+									}
+								}
+							}
+							else{
+								MagDisplay2[0] = (Amp2[3]/10000)%10 + 48;
+								MagDisplay2[1] = (Amp2[3]/1000)%10 + 48;
+								MagDisplay2[2] = 46;
+								MagDisplay2[3] = (Amp2[3]/100)%10 + 48;
+								MagDisplay2[4] = (Amp2[3]/10)%10 + 48;
+								MagDisplay2[5] = 32;
+								MagDisplay2[6] = 86;
+								if(MagDisplay2[0] == 48){
+									MagDisplay2[0] = 32;
+									if(MagDisplay2[1] == 48){
+										MagDisplay2[1] = 32;
+									}
+								}
+							}
+						}
+						else{
+							MagDisplay2[0] = 86;
+							MagDisplay2[1] = 0;
+						}
+						PushButtonTextSet(&g_psBotButtons[2], MagDisplay1);
+						PushButtonTextSet(&g_psBotButtons[3], MagDisplay2);
 					}
 
 				}
@@ -1830,7 +2630,11 @@ int main(void) {
 
 				// Issue paint request to the widgets.
 
-				WidgetPaint((tWidget *)&g_sWaveform);
+				if(stop == 0){
+					WidgetPaint((tWidget *) &g_sWaveform);
+					WidgetPaint((tWidget * ) &g_psBotButtons[2]);
+					WidgetPaint((tWidget * ) &g_psBotButtons[3]);
+				}
 
 				//
 				// Process any messages in the widget message queue.
@@ -2068,7 +2872,30 @@ void setup(void) {
 	for(i=0;i<SERIES_LENGTH;i++){
 		totalsB[i] = 0;
 	}
+	for(i=0;i<SERIES_LENGTH;i++){
+		old1[i] = 120;
+	}
+	for(i=0;i<SERIES_LENGTH;i++){
+		old2[i] = 120;
+	}
 
+	// Setup the mV per pixel for each vertical scale divison
+	mvpixel[0] = 15/2; // this is pixel/mv
+	mvpixel[1] = 15/5; // this is pixel/mv
+	mvpixel[2] = 15/10; // this is pixel/mv
+	mvpixel[3] = 20/15;
+	mvpixel[4] = 50/15;
+	mvpixel[5] = 100/15;
+	mvpixel[6] = 200/15;
+	mvpixel[7] = 500/15;
+	mvpixel[8] = 1000/15;
+	mvpixel[9] = 2000/15;
+	mvpixel[10] = 5000/15;
+	mvpixel[11] = 10000/15;
+	mvpixel[12] = 20000/15;
+	mvpixel[13] = 50000/15;
+
+	// Point the trigger level pointer to the address containing the trigger level
 	PTriggerLevel = &TriggerLevel;
 
 	// Enable FPU
@@ -2076,27 +2903,13 @@ void setup(void) {
 	FPUEnable();
 
 	//uDMA Stuff/////////////////////////////////////////////////////
-	//
-	// Enable the uDMA controller at the system level.  Enable it to continue
-	// to run while the processor is in sleep.
-	//
+	// Enable the uDMA and interrupts
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_UDMA);
 	SysCtlPeripheralSleepEnable(SYSCTL_PERIPH_UDMA);
-
-	//
-	// Enable the uDMA controller error interrupt.  This interrupt will occur
-	// if there is a bus error during a transfer.
-	//
 	IntEnable(INT_UDMAERR);
-
-	//
-	// Enable the uDMA controller.
-	//
 	uDMAEnable();
 
-	//
-	// Point at the control table to use for channel control structures.
-	//
+	// Point at the control table for uDMA
 	uDMAControlBaseSet(pui8ControlTable);
 
 	// Map Channel perhiperhal for 30
@@ -2360,7 +3173,18 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
 			break;
 		case 7: // 500mV/div
-			pixel_divider1 = 21.586;
+			pixel_divider1 = 18.728;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
+			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
+			break;
+		case 8: // 1V/div
+			pixel_divider1 = 27.772;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
@@ -2370,19 +3194,8 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,0);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
 			break;
-		case 8: // 1V/div
-			pixel_divider1 = 27.307;
-			// Multiplexer
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
-			// DVGA
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
-			break;
 		case 9: // 2V/div
-			pixel_divider1 = 54.613;
+			pixel_divider1 = 23.6887;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
@@ -2393,7 +3206,7 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
 			break;
 		case 10: // 5V/div
-			pixel_divider1 = 136.533;
+			pixel_divider1 = 59.222;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
@@ -2405,7 +3218,7 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			break;
 		case 11: // 10V/div
 			// Multiplexer
-			pixel_divider1 = 273.067;
+			pixel_divider1 = 118.443;
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
 			// DVGA
@@ -2416,7 +3229,7 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			break;
 		case 12: // 20V/div
 			// Multiplexer
-			pixel_divider1 = 546.133;
+			pixel_divider1 = 236.887;
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
 			// DVGA
@@ -2427,7 +3240,7 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			break;
 		case 13: // 25V/div
 			// Multiplexer
-			pixel_divider1 = 341.33;
+			pixel_divider1 = 296.108;
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
 			// DVGA
@@ -2437,7 +3250,7 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
 		default:
 			// Multiplexer
-			pixel_divider1 = 341.33;
+			pixel_divider1 = 296.108;
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
 			// DVGA
@@ -2528,7 +3341,18 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
 			break;
 		case 7: // 500mV/div
-			pixel_divider2 = 21.586;
+			pixel_divider2 = 18.728;
+			// Multiplexer
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
+			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
+			// DVGA
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
+			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,0);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
+			break;
+		case 8: // 1V/div
+			pixel_divider2 = 27.772;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
@@ -2538,19 +3362,8 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
 			break;
-		case 8: // 1V/div
-			pixel_divider2 = 27.307;
-			// Multiplexer
-			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
-			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
-			// DVGA
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,ECh2_DVGA_D1);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
-			break;
 		case 9: // 2V/div
-			pixel_divider2 = 54.613;
+			pixel_divider2 = 23.6887;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
@@ -2561,7 +3374,7 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
 			break;
 		case 10: // 5V/div
-			pixel_divider2 = 136.533;
+			pixel_divider2 = 59.222;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
@@ -2572,7 +3385,7 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
 			break;
 		case 11: // 10V/div
-			pixel_divider2 = 273.067;
+			pixel_divider2 = 118.443;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
@@ -2583,8 +3396,7 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
 			break;
 		case 12: // 20V/div
-			pixel_divider2 = 546.133;
-
+			pixel_divider2 = 236.887;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
@@ -2595,7 +3407,7 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
 			break;
 		case 13: // 25V/div
-			pixel_divider1 = 341.33;
+			pixel_divider2 = 296.108;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
@@ -2605,7 +3417,7 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
 		default:
-			pixel_divider1 = 341.33;
+			pixel_divider2 = 296.108;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
@@ -2785,96 +3597,96 @@ void SetupTimeDivision(uint8_t Scale){
 		EPIDivide = 100;
 		break;
 	case 5: // 1us/div
-		EPIDivide = 0;
-		NumSkip = 2;
+		EPIDivide = 1;
+		NumSkip = 0;
 		break;
 	case 6: // 2us/div
-		EPIDivide = 4;
+		EPIDivide = 2;
 		NumSkip = 0;
 		break;
 	case 7: // 5us/div
-		EPIDivide = 0;
-		NumSkip = 14;
+		EPIDivide = 6;
+		NumSkip = 0;
 		break;
 	case 8: // 10us/div
+		EPIDivide = 14;
+		NumSkip = 0;
+		break;
+	case 9: // 20us/div
 		EPIDivide = 8;
 		NumSkip = 2;
 		break;
-	case 9: // 20us/div
-		EPIDivide = 58;
-		NumSkip = 0;
-		break;
 	case 10: // 50us/div
-		EPIDivide = 148;
+		EPIDivide = 74;
 		NumSkip = 0;
 		break;
 	case 11: // 100us/div
-		EPIDivide = 298;
+		EPIDivide = 148;
 		NumSkip = 0;
 		break;
 	case 12: // 200us/div
-		EPIDivide = 598;
+		EPIDivide = 298;
 		NumSkip = 0;
 		break;
 	case 13: // 500us/div
-		EPIDivide = 1498;
+		EPIDivide = 748;
 		NumSkip = 0;
 		break;
 	case 14: // 1ms/div
-		EPIDivide = 2998;
+		EPIDivide = 1498;
 		NumSkip = 0;
 		break;
 	case 15: // 2ms/div
-		EPIDivide = 5998;
+		EPIDivide = 2998;
 		NumSkip = 0;
 		break;
 	case 16: // 5ms/div
-		EPIDivide = 14998;
+		EPIDivide = 7498;
 		NumSkip = 0;
 		break;
 	case 17: // 10ms/div
-		EPIDivide = 29998;
+		EPIDivide = 14998;
 		NumSkip = 0;
 		break;
 	case 18: // 20ms/div
-		EPIDivide = 59998;
+		EPIDivide = 29998;
 		NumSkip = 0;
 		break;
 	case 19: // 50ms/div
+		EPIDivide = 59998;
+		NumSkip =0;
+		break;
+	case 20: // 100ms/div
 		EPIDivide = 49998;
 		NumSkip = 2;
 		break;
-	case 20: // 100ms/div
+	case 21: // 200ms/div
 		EPIDivide = 59998;
 		NumSkip = 4;
 		break;
-	case 21: // 200ms/div
+	case 22: // 500ms/div
 		EPIDivide = 59998;
 		NumSkip = 9;
 		break;
-	case 22: // 500ms/div
-		EPIDivide = 59998;
-		NumSkip = 19;
-		break;
 	case 23: // 1s/div
 		EPIDivide = 59998;
-		NumSkip = 49;
+		NumSkip = 24;
 		break;
 	case 24: // 2s/div
 		EPIDivide = 59998;
-		NumSkip = 99;
+		NumSkip = 49;
 		break;
 	case 25: // 5s/div
 		EPIDivide = 59998;
-		NumSkip = 249;
+		NumSkip = 149;
 		break;
 	case 26: // 10s/div
 		EPIDivide = 59998;
-		NumSkip = 499;
+		NumSkip = 249;
 		break;
 	case 27: // 20s/div
 		EPIDivide = 59998;
-		NumSkip = 1599;
+		NumSkip = 499;
 		break;
 	case 28: // 50s/div
 		EPIDivide = 59998;
