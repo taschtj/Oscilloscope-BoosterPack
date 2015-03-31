@@ -195,6 +195,9 @@ extern tPushButtonWidget g_sPushBtnAddTime;
 extern tPushButtonWidget g_sPushBtnMinusTime;
 extern tContainerWidget g_sContainerMenu;
 extern tContainerWidget g_sContainerChannels;
+extern tContainerWidget g_sContainerTriggers;
+extern tContainerWidget g_sContainerTriggerSource;
+extern tContainerWidget g_sContainerTriggerMode;
 extern tContainerWidget g_sContainerFreMagnitudeC1;
 extern tContainerWidget g_sContainerFreMagnitudeC2;
 extern tContainerWidget g_sContainerVolMagnitudeC1;
@@ -208,20 +211,22 @@ extern tRadioButtonWidget g_sRadioBtnMath;
 extern tRadioButtonWidget g_sRadioBtnMaximum;
 extern tRadioButtonWidget g_sRadioBtnMinimum;
 extern tRadioButtonWidget g_sRadioBtnAverage;
-extern tSliderWidget g_sTriggerSlider;
+extern tSliderWidget g_sTriggerSliderVertical;
+extern tSliderWidget g_sTriggerSliderHorizontal;
 //for grid
 int x;
 int y;
 
 char *tempMagVolDivC2;
-char magVolDivC2[] = { 32, 32, 50, 109, 86, 47, 100, 105, 118, 0 };
+char magVolDivC2[] = { 32, 50, 48, 109, 86, 47, 100, 105, 118, 0 };
 char *tempMagVolDivC1;
-char magVolDivC1[] = { 32, 32, 50, 109, 86, 47, 100, 105, 118, 0 };
+char magVolDivC1[] = { 32, 50, 48, 109, 86, 47, 100, 105, 118, 0 };
 char *tempTimVolDivC1;
-char timVolDivC1[] = { 32, 50, 48, 110, 115, 47, 100, 105, 118, 0 };
+char timVolDivC1[] = { 32, 32, 50, 117, 115, 47, 100, 105, 118, 0 };
 void ClrScreen(void);
 void DRadioMenu(tWidget *pWidgetR);
 void DRadioChannels(tWidget *pWidgetR);
+void TriggerSelectRadioBtns(tWidget *psWidget, uint32_t bSelected);
 void ChannelSelectRadioBtns(tWidget *psWidget, uint32_t bSelected);
 void DRadioFreMagnitudeC1(tWidget *pWidgetR);
 void DRadioFreMagnitudeC2(tWidget *pWidgetR);
@@ -240,7 +245,8 @@ void MinusTimeDiv(tWidget *psWidget);
 void ClrMyWidget();
 double ASCtoDouble(char t[]);
 void TriggerFunction(tWidget *pWidget);
-void OnSliderChange(tWidget *psWidget, int32_t i32Value);
+void OnSliderChangeVertical(tWidget *psWidget, int32_t i32Value);
+void OnSliderChangeHorizontal(tWidget *psWidget, int32_t i32Value);
 void RunStop(tWidget *psWidget);
 void UpdateMeasurements(void);
 
@@ -291,7 +297,7 @@ tPushButtonWidget g_psTopButtons[] =
 										28,
 										(PB_STYLE_OUTLINE | PB_STYLE_TEXT_OPAQUE | PB_STYLE_TEXT | PB_STYLE_FILL),
 										ClrGray, ClrWhite, ClrWhite, ClrRed,
-										g_psFontCmss12, "2mV/div", 0, 0, 0, 0,
+										g_psFontCmss12, "20mV/div", 0, 0, 0, 0,
 										AddMinusFunctionC1),
 
 								RectangularButtonStruct(&g_sTop,
@@ -300,7 +306,7 @@ tPushButtonWidget g_psTopButtons[] =
 										28,
 										(PB_STYLE_OUTLINE | PB_STYLE_TEXT_OPAQUE | PB_STYLE_TEXT | PB_STYLE_FILL),
 										ClrGray, ClrWhite, ClrWhite, ClrYellow,
-										g_psFontCmss12, "2mV/div", 0, 0, 0, 0,
+										g_psFontCmss12, "20mV/div", 0, 0, 0, 0,
 										AddMinusFunctionC2),
 
 								RectangularButtonStruct(&g_sTop,
@@ -309,7 +315,7 @@ tPushButtonWidget g_psTopButtons[] =
 										52, 28,
 										(PB_STYLE_OUTLINE | PB_STYLE_TEXT_OPAQUE | PB_STYLE_TEXT | PB_STYLE_FILL),
 										ClrGray, ClrWhite, ClrWhite, ClrWhite,
-										g_psFontCmss12, "20ns/div", 0, 0, 0, 0, AddMinusFunctionTime),
+										g_psFontCmss12, "2us/div", 0, 0, 0, 0, AddMinusFunctionTime),
 
 								RectangularButtonStruct(&g_sTop,
 										g_psTopButtons + 4, 0,
@@ -373,10 +379,14 @@ RectangularButton(g_sPushBtnMinusTime, &g_sAddMinusTime, 0, 0,
 		ClrGray, ClrWhite, ClrWhite, ClrWhite, g_psFontCm16, "-", 0, 0, 0, 0,
 		MinusTimeDiv);
 
-Slider(g_sTriggerSlider,0, 0, 0, &g_sKentec320x240x16_SSD2119, 300, 29, 20, 183, 29, 211, 29,
+Slider(g_sTriggerSliderVertical,0, 0, 0, &g_sKentec320x240x16_SSD2119, 310, 29, 10, 183, 29, 211, 29,
                 ( SL_STYLE_BACKG_FILL|SL_STYLE_FILL|SL_STYLE_OUTLINE | SL_STYLE_VERTICAL),
                 ClrGray, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
-                &g_sFontCm20, "25%", 0, 0, OnSliderChange);
+                &g_sFontCm20, 0, 0, 0, OnSliderChangeVertical);
+Slider(g_sTriggerSliderHorizontal,0, 0, 0, &g_sKentec320x240x16_SSD2119, 0, 202, 300, 10, 0, 300, 120,
+                ( SL_STYLE_BACKG_FILL|SL_STYLE_FILL|SL_STYLE_OUTLINE),
+                ClrGray, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
+                &g_sFontCm20, 0, 0, 0, OnSliderChangeHorizontal);
 ///////////////////////////////////////////////////////////////////////////
 ///Bottom Buttons///////////////////////////////////////////////////////
 tPushButtonWidget g_psBotButtons[] =
@@ -424,7 +434,61 @@ tPushButtonWidget g_psBotButtons[] =
 										ClrGray, ClrWhite, ClrWhite, ClrWhite,
 										g_psFontCmss14, "Run/Stop", 0, 0, 0, 0,
 										RunStop) };
-///////////////////////////////////////////////////////////////
+//Radio Buttons for the trigger button//////////////////////////////////////////////////////
+
+tRadioButtonWidget g_psRadioBtnTriggers[] = {
+RadioButtonStruct(&g_sContainerTriggers, g_psRadioBtnTriggers + 1, 0,
+		&g_sKentec320x240x16_SSD2119, 159, 30, 48, 20, RB_STYLE_TEXT,
+		10, ClrBlack, ClrWhite, ClrWhite, g_psFontCmss14, "Source", 0,
+		TriggerSelectRadioBtns),
+RadioButtonStruct(&g_sContainerTriggers, g_psRadioBtnTriggers + 2, 0,
+		&g_sKentec320x240x16_SSD2119, 159, 51, 48, 20, RB_STYLE_TEXT,
+		10, ClrBlack, ClrWhite, ClrWhite, g_psFontCmss14, "Level", 0,
+		TriggerSelectRadioBtns),
+RadioButtonStruct(&g_sContainerTriggers, g_psRadioBtnTriggers + 3, 0,
+		&g_sKentec320x240x16_SSD2119, 159, 72, 48, 20, RB_STYLE_TEXT,
+		10, ClrBlack, ClrWhite, ClrWhite, g_psFontCmss14, "Position", 0, TriggerSelectRadioBtns),
+RadioButtonStruct(&g_sContainerTriggers, 0, 0,
+				&g_sKentec320x240x16_SSD2119, 159, 93, 48, 20, RB_STYLE_TEXT,
+				10, ClrBlack, ClrWhite, ClrWhite, g_psFontCmss14, "Mode", 0, TriggerSelectRadioBtns)};
+#define NUM_RADIO_BUTTONS_Triggers      (sizeof(g_psRadioBtnTriggers) /   \
+                                 sizeof(g_psRadioBtnTriggers[0]))
+
+
+
+
+
+tRadioButtonWidget g_psRadioBtnSource[] = {
+RadioButtonStruct(&g_sContainerTriggerSource, g_psRadioBtnSource + 1, 0,
+		&g_sKentec320x240x16_SSD2119, 212, 30, 48, 20, RB_STYLE_TEXT,
+		10, ClrBlack, ClrWhite, ClrRed, g_psFontCmss14, "  1", 0,
+		0),
+RadioButtonStruct(&g_sContainerTriggerSource, 0, 0,
+		&g_sKentec320x240x16_SSD2119, 212, 51, 48, 20, RB_STYLE_TEXT,
+		10, ClrBlack, ClrWhite, ClrYellow, g_psFontCmss14, "  2", 0,
+		0)};
+#define NUM_RADIO_BUTTONS_Sources      (sizeof(g_psRadioBtnSource) /   \
+                                 sizeof(g_psRadioBtnSource[0]))
+Container(g_sContainerTriggerSource, 0, 0, g_psRadioBtnSource,
+		&g_sKentec320x240x16_SSD2119, 212, 28, 52, 45,
+		(CTR_STYLE_OUTLINE |CTR_STYLE_FILL ), ClrBlack, ClrWhite, ClrRed,
+		g_psFontCm14, 0);
+
+tRadioButtonWidget g_psRadioBtnTriggerMode[] = {
+RadioButtonStruct(&g_sContainerTriggerMode, g_psRadioBtnTriggerMode + 1, 0,
+		&g_sKentec320x240x16_SSD2119, 212, 81, 48, 20, RB_STYLE_TEXT,
+		10, ClrBlack, ClrWhite, ClrRed, g_psFontCmss14, "Pedge", 0,
+		0),
+RadioButtonStruct(&g_sContainerTriggerMode, 0, 0,
+		&g_sKentec320x240x16_SSD2119, 212, 102, 48, 20, RB_STYLE_TEXT,
+		10, ClrBlack, ClrWhite, ClrYellow, g_psFontCmss14, "Nedge", 0,
+		0)};
+#define NUM_RADIO_BUTTONS_Sources      (sizeof(g_psRadioBtnTriggerMode) /   \
+                                 sizeof(g_psRadioBtnTriggerMode[0]))
+Container(g_sContainerTriggerMode, 0, 0, g_psRadioBtnTriggerMode,
+		&g_sKentec320x240x16_SSD2119, 212, 80, 52, 45,
+		(CTR_STYLE_OUTLINE |CTR_STYLE_FILL ), ClrBlack, ClrWhite, ClrRed,
+		g_psFontCm14, 0);
 ///////////////////////////////////////////////////////////////
 //RectangularButtonStruct(&g_sTop,
 //		g_psTopButtons + 5, 0,
@@ -466,7 +530,6 @@ RadioButtonStruct(&g_sContainerMenu, g_psRadioBtnMenu + 3, 0,
 RadioButtonStruct(&g_sContainerMenu, 0, 0, &g_sKentec320x240x16_SSD2119,
 		266, 103, 48, 20, RB_STYLE_TEXT, 10, ClrBlack, ClrWhite, ClrRed,
 		g_psFontCmss12, "Math", 0, 0) };
-
 ////Radio Buttons for Hz and V Pushbuttons////////////////////////////////////
 tRadioButtonWidget g_psRadioBtnFreqMagC1[] = {
 RadioButtonStruct(&g_sContainerFreMagnitudeC1, g_psRadioBtnFreqMagC1 + 1, 0,
@@ -517,11 +580,16 @@ RadioButtonStruct(&g_sContainerVolMagnitudeC2, 0, 0,
 
 };
 //////////////////////////////////////////////////////////////////////////////////
+Container(g_sContainerTriggers, 0, 0, g_psRadioBtnTriggers,
+		&g_sKentec320x240x16_SSD2119, 159, 28, 52, 85,
+		(CTR_STYLE_OUTLINE |CTR_STYLE_FILL ), ClrBlack, ClrWhite, ClrRed,
+		g_psFontCm14, 0);
+
+
 Container(g_sContainerChannels, 0, 0, g_psRadioBtnChannels,
 		&g_sKentec320x240x16_SSD2119, 212, 28, 52, 75,
 		(CTR_STYLE_OUTLINE |CTR_STYLE_FILL ), ClrBlack, ClrWhite, ClrRed,
 		g_psFontCm14, 0);
-
 Container(g_sContainerMenu, 0, 0, g_psRadioBtnMenu,
 		&g_sKentec320x240x16_SSD2119, 265, 28, 52, 115,
 		(CTR_STYLE_OUTLINE |CTR_STYLE_FILL ), ClrBlack, ClrWhite, ClrRed,
@@ -990,7 +1058,6 @@ void DRadioChannels(tWidget *pWidgetR){
 		WidgetPaint((tWidget * )&g_sContainerChannels);
 	}
 	else {
-		ClrMyWidget();
 		if(stopped == 1){
 			stopped = 0;
 		}
@@ -998,7 +1065,38 @@ void DRadioChannels(tWidget *pWidgetR){
 			stop = 0;
 			stopped = 0;
 		}
+		ClrMyWidget();
 	}
+}
+
+void TriggerSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
+
+	  uint32_t ui32Idx;
+	  for(ui32Idx = 0; ui32Idx < NUM_RADIO_BUTTONS_Triggers; ui32Idx++)
+	  {
+	      if(psWidget == (tWidget *)(g_psRadioBtnTriggers + ui32Idx))
+	      {
+	          break;
+	      }
+	  }
+
+	  if(ui32Idx==0){
+		  WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sContainerTriggerSource);
+		  WidgetPaint((tWidget * )&g_sContainerTriggerSource);
+	  }
+	  else if(ui32Idx==1){
+		  WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sTriggerSliderVertical);
+		  WidgetPaint((tWidget * )&g_sTriggerSliderVertical);
+	  }
+	  else if(ui32Idx==2){
+		  WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sTriggerSliderHorizontal);
+		  WidgetPaint((tWidget * )&g_sTriggerSliderHorizontal);
+	  	  }
+	  else{
+		  WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sContainerTriggerMode);
+		  WidgetPaint((tWidget * )&g_sContainerTriggerMode);
+
+	  }
 }
 void ChannelSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
 	  uint32_t ui32Idx;
@@ -1255,16 +1353,10 @@ void TriggerFunction(tWidget *pWidget){
 			stop = 1;
 			stopped = 0;
 		}
-		WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sTriggerSlider);
-
-		//WidgetAdd(WIDGET_ROOT, (tWidget *) &CanvasForLine);
-
-
-		WidgetPaint((tWidget * )&g_sTriggerSlider);
-
-		//WidgetPaint((tWidget *)&CanvasForLine);
-	} else {
-		//WidgetRemove((tWidget *)&CanvasForLine);
+		WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sContainerTriggers);
+		WidgetPaint((tWidget * )&g_sContainerTriggers);
+	}
+	else {
 		if(stopped == 1){
 			stopped = 0;
 		}
@@ -1276,7 +1368,7 @@ void TriggerFunction(tWidget *pWidget){
 	}
 }
 void
-OnSliderChange(tWidget *psWidget, int32_t i32Value){
+OnSliderChangeVertical(tWidget *psWidget, int32_t i32Value){
 
 	SetupTrigger((midlevel1 - (240 - (uint16_t) i32Value))*pixel_divider1,0,0,1);
 
@@ -1309,6 +1401,12 @@ OnSliderChange(tWidget *psWidget, int32_t i32Value){
 
 
 }
+void
+OnSliderChangeHorizontal(tWidget *psWidget, int32_t i32Value){
+
+
+
+}
 
 void RunStop(tWidget *psWidget){
 	if(stop == 0)
@@ -1322,9 +1420,9 @@ int main(void) {
 	ui32SysClkFreq = SysCtlClockFreqSet((SYSCTL_XTAL_25MHZ |
 	SYSCTL_OSC_MAIN | SYSCTL_USE_PLL |
 	SYSCTL_CFG_VCO_480), 120000000);
-	tempMagVolDivC1 = magVolDivC1 + 2;
-	tempMagVolDivC2 = magVolDivC2 + 2;
-	tempTimVolDivC1 = timVolDivC1 + 1;
+	tempMagVolDivC1 = magVolDivC1 + 1;
+	tempMagVolDivC2 = magVolDivC2 + 1;
+	tempTimVolDivC1 = timVolDivC1 + 2;
 
 
 
@@ -2005,6 +2103,9 @@ void ClrScreen() {
 //Clean all the widget running and repaint BackGround and Waveform
 void ClrMyWidget(){
 	WidgetRemove((tWidget *) &g_sContainerChannels);
+
+	WidgetRemove((tWidget *) &g_sContainerTriggerSource);
+	WidgetRemove((tWidget *) &g_sContainerTriggers);
 	WidgetRemove((tWidget *) &g_sContainerMenu);
 	WidgetRemove((tWidget *) &g_sContainerFreMagnitudeC1);
 	WidgetRemove((tWidget *) &g_sContainerFreMagnitudeC2);
@@ -2013,7 +2114,7 @@ void ClrMyWidget(){
 	WidgetRemove((tWidget *) &g_sAddMinusC1);
 	WidgetRemove((tWidget *) &g_sAddMinusC2);
 	WidgetRemove((tWidget *) &g_sAddMinusTime);
-	WidgetRemove((tWidget *) &g_sTriggerSlider);
+	//WidgetRemove((tWidget *) &g_sTriggerSlider);
 
 	WidgetPaint((tWidget * )&g_sBackground);
 	WidgetPaint((tWidget * )&g_sWaveform);
