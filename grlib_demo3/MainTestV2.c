@@ -80,9 +80,10 @@
 // The size of the memory transfer source and destination buffers (in words).
 //
 //*****************************************************************************
-#define MEM_BUFFER_SIZE         1024/2
-#define MaxSize					1024*12 // Must be multiple of MEM_BUFFER_SIZE
-#define TimeAvg					320
+#define MEM_BUFFER_SIZE         2048
+#define MaxSize					1024*20 // Must be multiple of MEM_BUFFER_SIZE
+#define MeasureAvg				10
+#define TimeAvg					320 // Multipy by MeasureAvg
 
 //*****************************************************************************
 //
@@ -151,19 +152,22 @@ extern const uint8_t g_pui9Image[];
 // global variables
 uint32_t totalsA[SERIES_LENGTH], totalsB[SERIES_LENGTH];
 uint16_t totalA, totalB;
-uint16_t l1 = 0, l2 = 0;
+uint16_t l1 = 0, l2 = 0, measnum = 0;
 uint32_t i = 0, j = 0, f = 0, k = 0, m = 0, EPIDivide = 5;
 uint16_t freqref1 = 0, t1[TimeAvg], freqref2 = 0, t2[TimeAvg];
 uint8_t freqstart2 = 0, freqstop2 = 0, freqstart1 = 0, freqstop1 = 0;
 float t2Avg, t1Avg;
 uint32_t totalt1 = 0, totalt2 = 0;
 uint16_t NumAvgt1 = 0, NumAvgt2 = 0;
-uint16_t Amp1[4], Amp2[4], NumAvg = 8, *PTriggerLevel, TriggerLevel = 1800;
-uint32_t *pFreq1, *pFreq2, Freq1 = 0, Freq2 = 0;
+uint32_t Frequency1 = 0, Frequency2;
+uint64_t Frequency1Total = 0, Frequency2Total = 0;
+uint8_t NumFreqs1 = 0, NumFreqs2 = 0;
+uint16_t Amp1[4], Amp2[4], NumAvg = 10, *PTriggerLevel, TriggerLevel = 2000;
+uint32_t Freq1[MeasureAvg], Freq2[MeasureAvg];
 uint32_t receive[24], oppreceive[24], total, CountSize = 1024, count = 0, pixel_total = 0, pixel_average;
 uint8_t pri, alt, TriggerStart = 0, Trigger = 0, GoThrough = 0, CaptureMode = 0, TriggerMode = 0, begin = 0, TriggerSource = 1;
 uint16_t NumSkip = 2, TriggerPosition = 160, old1[SERIES_LENGTH], old2[SERIES_LENGTH], pixels[SERIES_LENGTH], pixels2[SERIES_LENGTH], midlevel1;
-uint16_t midlevel1, midlevel2, level1 = 80, level2 = 160;
+uint16_t midlevel1, midlevel2, *plevel1, *plevel2, level1 = 80, level2 = 160;
 uint32_t ui32Mode;
 int *EPISource;
 uint8_t below = 0, above = 0, clockout = 0, stop = 0, Ch1on = 1, Ch2on = 1, Ch1off = 0, Ch2off = 0;
@@ -249,6 +253,8 @@ void OnSliderChangeVertical(tWidget *psWidget, int32_t i32Value);
 void OnSliderChangeHorizontal(tWidget *psWidget, int32_t i32Value);
 void RunStop(tWidget *psWidget);
 void UpdateMeasurements(void);
+void CalibrateOffset(void);
+void AutoScale(tWidget *psWidget);
 
 tPushButtonWidget g_psTopButtons[];
 tPushButtonWidget g_psBotButtons[];
@@ -426,7 +432,7 @@ tPushButtonWidget g_psBotButtons[] =
 										52, 28,
 										(PB_STYLE_OUTLINE | PB_STYLE_TEXT_OPAQUE | PB_STYLE_TEXT | PB_STYLE_FILL),
 										ClrGray, ClrWhite, ClrWhite, ClrWhite,
-										g_psFontCm16, "Auto", 0, 0, 0, 0, 0),
+										g_psFontCm16, "Auto", 0, 0, 0, 0, AutoScale),
 								RectangularButtonStruct(&g_sBottom, 0, 0,
 										&g_sKentec320x240x16_SSD2119, 265, 212,
 										52, 28,
@@ -530,6 +536,7 @@ RadioButtonStruct(&g_sContainerMenu, g_psRadioBtnMenu + 3, 0,
 RadioButtonStruct(&g_sContainerMenu, 0, 0, &g_sKentec320x240x16_SSD2119,
 		266, 103, 48, 20, RB_STYLE_TEXT, 10, ClrBlack, ClrWhite, ClrRed,
 		g_psFontCmss12, "Math", 0, 0) };
+
 ////Radio Buttons for Hz and V Pushbuttons////////////////////////////////////
 tRadioButtonWidget g_psRadioBtnFreqMagC1[] = {
 RadioButtonStruct(&g_sContainerFreMagnitudeC1, g_psRadioBtnFreqMagC1 + 1, 0,
@@ -590,6 +597,7 @@ Container(g_sContainerChannels, 0, 0, g_psRadioBtnChannels,
 		&g_sKentec320x240x16_SSD2119, 212, 28, 52, 75,
 		(CTR_STYLE_OUTLINE |CTR_STYLE_FILL ), ClrBlack, ClrWhite, ClrRed,
 		g_psFontCm14, 0);
+
 Container(g_sContainerMenu, 0, 0, g_psRadioBtnMenu,
 		&g_sKentec320x240x16_SSD2119, 265, 28, 52, 115,
 		(CTR_STYLE_OUTLINE |CTR_STYLE_FILL ), ClrBlack, ClrWhite, ClrRed,
@@ -1066,6 +1074,7 @@ void DRadioChannels(tWidget *pWidgetR){
 			stopped = 0;
 		}
 		ClrMyWidget();
+
 	}
 }
 
@@ -1415,6 +1424,10 @@ void RunStop(tWidget *psWidget){
 		stop = 0;
 }
 
+void AutoScale(tWidget *psWidget){
+	CalibrateOffset();
+}
+
 //
 int main(void) {
 	ui32SysClkFreq = SysCtlClockFreqSet((SYSCTL_XTAL_25MHZ |
@@ -1656,12 +1669,14 @@ int main(void) {
 							if(CaptureMode == 0){
 								if(begin == 0){
 									begin=1;
-									for(i=0;i<TriggerPosition*(NumSkip+1);i++){
+									for(i=0;i<TriggerPosition;i++){
 										if((int32_t) (f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1)) < 0){
 											pixels[i] = values[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1))];
+											pixels2[i] = values2[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1))];
 										}
 										else{
 											pixels[i] = values[f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1)];
+											pixels2[i] = values2[f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1)];
 										}
 									}
 								}
@@ -1684,14 +1699,21 @@ int main(void) {
 								}
 							}
 							else if(CaptureMode == 1){
-								/*for(i=0;i<TriggerPosition;i++){
-									if((int32_t) (f + k*MEM_BUFFER_SIZE - TriggerPosition + i) < 0){
-										pixels[i] = values[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i)];
+								if(begin == 0){
+									begin=1;
+									if(j<NumAvg){
+										for(i=0;i<TriggerPosition;i++){
+											if((int32_t) (f + k*MEM_BUFFER_SIZE - TriggerPosition) < 0){
+												totalsA[i] = totalsA[i] + values[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i)];
+												totalsB[i] = totalsB[i] + values2[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i)];
+											}
+											else{
+												totalsA[i] = totalsA[i] + values[f + k*MEM_BUFFER_SIZE - TriggerPosition + i];
+												totalsB[i] = totalsB[i] + values2[f + k*MEM_BUFFER_SIZE - TriggerPosition + i];
+											}
+										}
 									}
-									else{
-										pixels[i] = values[f + k*MEM_BUFFER_SIZE - TriggerPosition + i];
-									}
-								}*/
+								}
 								if(j<NumAvg){
 									if(m < SERIES_LENGTH){
 										totalsA[m] = totalsA[m]+ values[f + k*MEM_BUFFER_SIZE];
@@ -1701,6 +1723,7 @@ int main(void) {
 									else{
 										j++;
 										m=0;
+										begin = 0;
 										//totalsA[m] = totalsA[m]+ values[f + k*MEM_BUFFER_SIZE];
 										//totalsB[m] = totalsB[m]+ values2[f + k*MEM_BUFFER_SIZE];
 										//m++;
@@ -1709,16 +1732,16 @@ int main(void) {
 								}
 								else{
 									j = 0;
-									for(i=0;i<SERIES_LENGTH;i++){
-										pixels[i] = totalsA[i]/NumAvg;
+									for(i=0;i<TriggerPosition;i++){
+										totalsA[i] = totalsA[i]/2;
+										totalsB[i] = totalsB[i]/2;
 									}
 									for(i=0;i<SERIES_LENGTH;i++){
+										pixels[i] = totalsA[i]/NumAvg;
 										pixels2[i] = totalsB[i]/NumAvg;
 									}
 									for(i=0;i<SERIES_LENGTH;i++){
 										totalsA[i] = 0;
-									}
-									for(i=0;i<SERIES_LENGTH;i++){
 										totalsB[i] = 0;
 									}
 									UpdateMeasurements();
@@ -1970,12 +1993,14 @@ int main(void) {
 							if(CaptureMode == 0){
 								if(begin == 0){
 									begin=1;
-									for(i=0;i<TriggerPosition*(NumSkip+1);i++){
+									for(i=0;i<TriggerPosition;i++){
 										if((int32_t) (f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1)) < 0){
 											pixels[i] = values[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1))];
+											pixels2[i] = values2[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1))];
 										}
 										else{
 											pixels[i] = values[f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1)];
+											pixels2[i] = values2[f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1)];
 										}
 									}
 								}
@@ -1998,14 +2023,21 @@ int main(void) {
 								}
 							}
 							else if(CaptureMode == 1){
-								/*for(i=0;i<TriggerPosition;i++){
-									if((int32_t) (f + k*MEM_BUFFER_SIZE - TriggerPosition + i) < 0){
-										pixels[i] = values[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i)];
+								if(begin == 0){
+									begin=1;
+									if(j<(NumAvg-1)){
+										for(i=0;i<TriggerPosition;i++){
+											if((int32_t) (f + k*MEM_BUFFER_SIZE - TriggerPosition) < 0){
+												totalsA[i] = totalsA[i] + values[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i)];
+												totalsB[i] = totalsB[i] + values2[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i)];
+											}
+											else{
+												totalsA[i] = totalsA[i] + values[f + k*MEM_BUFFER_SIZE - TriggerPosition + i];
+												totalsB[i] = totalsB[i] + values2[f + k*MEM_BUFFER_SIZE - TriggerPosition + i];
+											}
+										}
 									}
-									else{
-										pixels[i] = values[f + k*MEM_BUFFER_SIZE - TriggerPosition + i];
-									}
-								}*/
+								}
 								if(j<NumAvg){
 									if(m < SERIES_LENGTH){
 										totalsA[m] = totalsA[m]+ values[f + k*MEM_BUFFER_SIZE];
@@ -2015,6 +2047,7 @@ int main(void) {
 									else{
 										j++;
 										m=0;
+										begin = 0;
 										//totalsA[m] = totalsA[m]+ values[f + k*MEM_BUFFER_SIZE];
 										//totalsB[m] = totalsB[m]+ values2[f + k*MEM_BUFFER_SIZE];
 										//m++;
@@ -2023,16 +2056,16 @@ int main(void) {
 								}
 								else{
 									j = 0;
-									for(i=0;i<SERIES_LENGTH;i++){
-										pixels[i] = totalsA[i]/NumAvg;
+									for(i=0;i<TriggerPosition;i++){
+										totalsA[i] = totalsA[i]/2;
+										totalsB[i] = totalsB[i]/2;
 									}
 									for(i=0;i<SERIES_LENGTH;i++){
+										pixels[i] = totalsA[i]/NumAvg;
 										pixels2[i] = totalsB[i]/NumAvg;
 									}
 									for(i=0;i<SERIES_LENGTH;i++){
 										totalsA[i] = 0;
-									}
-									for(i=0;i<SERIES_LENGTH;i++){
 										totalsB[i] = 0;
 									}
 									UpdateMeasurements();
@@ -2119,6 +2152,7 @@ void ClrMyWidget(){
 	WidgetPaint((tWidget * )&g_sBackground);
 	WidgetPaint((tWidget * )&g_sWaveform);
 }
+
 
 //Transfre the ASCII value to the double value
 double ASCtoDouble(char t[]){
@@ -2378,9 +2412,15 @@ void setup(void) {
 	// Point the trigger level pointer to the address containing the trigger level
 	PTriggerLevel = &TriggerLevel;
 
-	// Point the frequncy pointers to their corresponding values
-	pFreq1 = &Freq1;
-	pFreq2 = &Freq2;
+	// Point the level offsets for the channels
+	plevel1 = &level1;
+	plevel2 = &level2;
+
+	// Intialize Frequency Values
+	for(i=0;i<MeasureAvg;i++){
+		Freq1[i] = 0;
+		Freq2[i] = 0;
+	}
 
 	// Enable FPU
 	FPULazyStackingEnable();
@@ -3207,20 +3247,12 @@ void UpdateMeasurements(void){
 	Amp2[1] = 0;
 	Amp2[0] = 4097;
 	freqref1 = pixels[3];
-	//t1 = 0;
 	freqstart1 = 0;
-	//freqstop1 = 0;
 	freqref2 = pixels2[3];
-	//t2 = 0;
 	freqstart2 = 0;
-	//freqstop2 = 0;
-	Freq1 = 0;
-	Freq2 = 0;
-	for(l1=0;l1<TimeAvg;l1++){
-		t1[l1] = 0;
-	}
-	for(l2=0;l2<TimeAvg;l2++){
-		t2[l2] = 0;
+	for(i=0;i<TimeAvg;i++){
+		t1[i] = 0;
+		t2[i] = 0;
 	}
 	l1 = 0;
 	l2 = 0;
@@ -3237,37 +3269,15 @@ void UpdateMeasurements(void){
 		if(pixels2[i] > Amp2[1]){
 			Amp2[1] = pixels2[i];
 		}
-		/*if(TriggerMode == 0 && i > 0){
-			if(pixels[i-1] <= freqref1 && pixels[i] >= freqref1 && freqstart1 == 0 && freqstop1 == 0){
-				freqstart1 = 1;
-			}
-			else if(pixels[i-1] <= freqref1 && pixels[i] >= freqref1 && freqstart1 == 1){
-				freqstart1 = 0;
-				freqstop1 = 1;
-			}
-			if(freqstart1 == 1){
-				t1++;
-			}
-
-			if(pixels2[i-1] <= freqref2 && pixels2[i] >= freqref2 && freqstart2 == 0 && freqstop2 == 0){
-				freqstart2 = 1;
-			}
-			else if(pixels2[i-1] <= freqref2 && pixels2[i] >= freqref2 && freqstart2 == 1){
-				freqstart2 = 0;
-				freqstop2 = 1;
-			}
-			if(freqstart2 == 1){
-				t2++;
-			}
-
-		}*/
 		if(TriggerMode == 0 && i > 0){
 			if(pixels[i-1] <= freqref1 && pixels[i] >= freqref1 && freqstart1 == 0){
 				freqstart1 = 1;
 			}
 			else if(pixels[i-1] <= freqref1 && pixels[i] >= freqref1 && freqstart1 == 1){
 				freqstart1 = 0;
-				l1++;
+				if(l1 < TimeAvg){
+					l1++;
+				}
 			}
 			if(freqstart1 == 1){
 				t1[l1] = t1[l1] + 1;
@@ -3278,7 +3288,9 @@ void UpdateMeasurements(void){
 			}
 			else if(pixels2[i-1] <= freqref2 && pixels2[i] >= freqref2){
 				freqstart2 = 0;
-				l2++;
+				if(l2 < TimeAvg){
+					l2++;
+				}
 			}
 			if(freqstart2 == 1){
 				t2[l2] = t2[l2] + 1;
@@ -3291,7 +3303,9 @@ void UpdateMeasurements(void){
 			}
 			else if(pixels[i-1] >= freqref1 && pixels[i] <= freqref1 && freqstart1 == 1){
 				freqstart1 = 0;
-				l1++;
+				if(l1 < TimeAvg){
+					l1++;
+				}
 			}
 			if(freqstart1 == 1){
 				t1[l1] = t1[l1] + 1;
@@ -3302,35 +3316,14 @@ void UpdateMeasurements(void){
 			}
 			else if(pixels2[i-1] >= freqref2 && pixels2[i] <= freqref2 && freqstart2 == 1){
 				freqstart2 = 0;
-				 l2++;
+				if(l2 < TimeAvg){
+					l2++;
+				}
 			}
 			if(freqstart2 == 1){
 				t2[l2] = t2[l2] + 1;
 			}
 		}
-		/*else if(TriggerMode == 1 && i > 0){
-			if(pixels[i-1] >= freqref1 && pixels[i] <= freqref1 && freqstart1 == 0 && freqstop1 == 0){
-				freqstart1 = 1;
-			}
-			else if(pixels[i-1] >= freqref1 && pixels[i] <= freqref1 && freqstart1 == 1){
-				freqstart1 = 0;
-				freqstop1 = 1;
-			}
-			if(freqstart1 == 1){
-				t1++;
-			}
-
-			if(pixels2[i-1] >= freqref2 && pixels2[i] <= freqref2 && freqstart2 == 0 && freqstop2 == 0){
-				freqstart2 = 1;
-			}
-			else if(pixels2[i-1] >= freqref2 && pixels2[i] <= freqref2 && freqstart2 == 1){
-				freqstart2 = 0;
-				freqstop2 = 1;
-			}
-			if(freqstart2 == 1){
-				t2++;
-			}
-		}*/
 	}
 	totalt1 = 0;
 	totalt2 = 0;
@@ -3365,224 +3358,250 @@ void UpdateMeasurements(void){
 	t1Avg = totalt1/NumAvgt1;
 	t2Avg = totalt2/NumAvgt2;
 	if(t1Avg != 0){
-		Freq1 = 1000/(t1Avg*secpixel[Time]);
+		Freq1[measnum] = 1000/(t1Avg*secpixel[Time]);
 	}
 	if(t2Avg != 0){
-		Freq2 = 1000/(t2Avg*secpixel[Time]);
+		Freq2[measnum] = 1000/(t2Avg*secpixel[Time]);
 	}
-
-	if(Ch1on == 1){
-		if(Freq1 > 1000000000){
-			FreqDisplay1[0] = (Freq1/1000000000)%10 + 48;
-			FreqDisplay1[1] = 46;
-			FreqDisplay1[2] = (Freq1/1000000000)%10 + 48;
-			FreqDisplay1[3] = (Freq1/100000000)%10 + 48;
-			FreqDisplay1[4] = 32;
-			FreqDisplay1[5] = 77;
-			FreqDisplay1[6] = 72;
-			FreqDisplay1[7] = 122;
-			FreqDisplay1[8] = 0;
-		}
-		else if(Freq1 > 100000000){
-			FreqDisplay1[0] = (Freq1/100000000)%10 + 48;
-			FreqDisplay1[1] = (Freq1/10000000)%10 + 48;
-			FreqDisplay1[2] = (Freq1/1000000)%10 + 48;
-			FreqDisplay1[3] = 32;
-			FreqDisplay1[4] = 107;
-			FreqDisplay1[5] = 72;
-			FreqDisplay1[6] = 122;
-			FreqDisplay1[7] = 0;
-			FreqDisplay1[8] = 0;
-		}
-		else if(Freq1 > 10000000){
-			FreqDisplay1[0] = (Freq1/10000000)%10 + 48;
-			FreqDisplay1[1] = (Freq1/1000000)%10 + 48;
-			FreqDisplay1[2] = 46;
-			FreqDisplay1[3] = (Freq1/100000)%10 + 48;
-			FreqDisplay1[4] = 32;
-			FreqDisplay1[5] = 107;
-			FreqDisplay1[6] = 72;
-			FreqDisplay1[7] = 122;
-			FreqDisplay1[8] = 0;
-		}
-		else if(Freq1 > 1000000){
-			FreqDisplay1[0] = (Freq1/1000000)%10 + 48;
-			FreqDisplay1[1] = 46;
-			FreqDisplay1[2] = (Freq1/100000)%10 + 48;
-			FreqDisplay1[3] = (Freq1/10000)%10 + 48;
-			FreqDisplay1[4] = 32;
-			FreqDisplay1[5] = 107;
-			FreqDisplay1[6] = 72;
-			FreqDisplay1[7] = 122;
-			FreqDisplay1[8] = 0;
-		}
-		else if(Freq1 > 100000){
-			FreqDisplay1[0] = (Freq1/100000)%10 + 48;
-			FreqDisplay1[1] = (Freq1/10000)%10 + 48;
-			FreqDisplay1[2] = (Freq1/1000)%10 + 48;
-			FreqDisplay1[3] = 32;
-			FreqDisplay1[4] = 72;
-			FreqDisplay1[5] = 122;
-			FreqDisplay1[6] = 0;
-			FreqDisplay1[7] = 0;
-			FreqDisplay1[8] = 0;
-		}
-		else if(Freq1 > 10000){
-			FreqDisplay1[0] = (Freq1/10000)%10 + 48;
-			FreqDisplay1[1] = (Freq1/1000)%10 + 48;
-			FreqDisplay1[2] = 46;
-			FreqDisplay1[3] = (Freq1/100)%10 + 48;
-			FreqDisplay1[4] = 32;
-			FreqDisplay1[5] = 72;
-			FreqDisplay1[6] = 122;
-			FreqDisplay1[7] = 0;
-			FreqDisplay1[8] = 0;
-		}
-		else if(Freq1 > 1000){
-			FreqDisplay1[0] = (Freq1/1000)%10 + 48;
-			FreqDisplay1[1] = 46;
-			FreqDisplay1[2] = (Freq1/100)%10 + 48;
-			FreqDisplay1[3] = (Freq1/10)%10 + 48;
-			FreqDisplay1[4] = 32;
-			FreqDisplay1[5] = 72;
-			FreqDisplay1[6] = 122;
-			FreqDisplay1[7] = 0;
-			FreqDisplay1[8] = 0;
-		}
-		else{
-			FreqDisplay1[0] = (Freq1/100)%10 + 48;
-			FreqDisplay1[1] = (Freq1/10)%10 + 48;
-			FreqDisplay1[2] = Freq1%10 + 48;
-			FreqDisplay1[3] = 32;
-			FreqDisplay1[4] = 109;;
-			FreqDisplay1[5] = 72;
-			FreqDisplay1[6] = 122;
-			FreqDisplay1[7] = 0;
-			FreqDisplay1[8] = 0;
-			if(FreqDisplay1[0] == 48){
-				FreqDisplay1[0] = 32;
-				if(FreqDisplay1[1] == 48){
-					FreqDisplay1[1] = 32;
-				}
-			}
-		}
-	}
-	else{
-		FreqDisplay1[0] = 72;
-		FreqDisplay1[1] = 122;
-		FreqDisplay1[2] = 0;
-	}
-
-	if(Ch2on == 1){
-		if(Freq2 > 1000000000){
-			FreqDisplay2[0] = (Freq2/1000000000)%10 + 48;
-			FreqDisplay2[1] = 46;
-			FreqDisplay2[2] = (Freq2/1000000000)%10 + 48;
-			FreqDisplay2[3] = (Freq2/100000000)%10 + 48;
-			FreqDisplay2[4] = 32;
-			FreqDisplay2[5] = 77;
-			FreqDisplay2[6] = 72;
-			FreqDisplay2[7] = 122;
-			FreqDisplay2[8] = 0;
-		}
-		else if(Freq2 > 100000000){
-			FreqDisplay2[0] = (Freq2/100000000)%10 + 48;
-			FreqDisplay2[1] = (Freq2/10000000)%10 + 48;
-			FreqDisplay2[2] = (Freq2/1000000)%10 + 48;
-			FreqDisplay2[3] = 32;
-			FreqDisplay2[4] = 107;
-			FreqDisplay2[5] = 72;
-			FreqDisplay2[6] = 122;
-			FreqDisplay2[7] = 0;
-			FreqDisplay2[8] = 0;
-		}
-		else if(Freq2 > 10000000){
-			FreqDisplay2[0] = (Freq2/10000000)%10 + 48;
-			FreqDisplay2[1] = (Freq2/1000000)%10 + 48;
-			FreqDisplay2[2] = 46;
-			FreqDisplay2[3] = (Freq2/100000)%10 + 48;
-			FreqDisplay2[4] = 32;
-			FreqDisplay2[5] = 107;
-			FreqDisplay2[6] = 72;
-			FreqDisplay2[7] = 122;
-			FreqDisplay2[8] = 0;
-		}
-		else if(Freq2 > 1000000){
-			FreqDisplay2[0] = (Freq2/1000000)%10 + 48;
-			FreqDisplay2[1] = 46;
-			FreqDisplay2[2] = (Freq2/100000)%10 + 48;
-			FreqDisplay2[3] = (Freq2/10000)%10 + 48;
-			FreqDisplay2[4] = 32;
-			FreqDisplay2[5] = 107;
-			FreqDisplay2[6] = 72;
-			FreqDisplay2[7] = 122;
-			FreqDisplay2[8] = 0;
-		}
-		else if(Freq2 > 100000){
-			FreqDisplay2[0] = (Freq2/100000)%10 + 48;
-			FreqDisplay2[1] = (Freq2/10000)%10 + 48;
-			FreqDisplay2[2] = (Freq2/1000)%10 + 48;
-			FreqDisplay2[3] = 32;
-			FreqDisplay2[4] = 72;
-			FreqDisplay2[5] = 122;
-			FreqDisplay2[6] = 0;
-			FreqDisplay2[7] = 0;
-			FreqDisplay2[8] = 0;
-		}
-		else if(Freq2 > 10000){
-			FreqDisplay2[0] = (Freq2/10000)%10 + 48;
-			FreqDisplay2[1] = (Freq2/1000)%10 + 48;
-			FreqDisplay2[2] = 46;
-			FreqDisplay2[3] = (Freq2/100)%10 + 48;
-			FreqDisplay2[4] = 32;
-			FreqDisplay2[5] = 72;
-			FreqDisplay2[6] = 122;
-			FreqDisplay2[7] = 0;
-			FreqDisplay2[8] = 0;
-		}
-		else if(Freq2 > 1000){
-			FreqDisplay2[0] = (Freq2/1000)%10 + 48;
-			FreqDisplay2[1] = 46;
-			FreqDisplay2[2] = (Freq2/100)%10 + 48;
-			FreqDisplay2[3] = (Freq2/10)%10 + 48;
-			FreqDisplay2[4] = 32;
-			FreqDisplay2[5] = 72;
-			FreqDisplay2[6] = 122;
-			FreqDisplay2[7] = 0;
-			FreqDisplay2[8] = 0;
-		}
-		else{
-			FreqDisplay2[0] = (Freq2/100)%10 + 48;
-			FreqDisplay2[1] = (Freq2/10)%10 + 48;
-			FreqDisplay2[2] = Freq2%10 + 48;
-			FreqDisplay2[3] = 32;
-			FreqDisplay2[4] = 109;
-			FreqDisplay2[5] = 72;
-			FreqDisplay2[6] = 122;
-			FreqDisplay2[7] = 0;
-			FreqDisplay2[8] = 0;
-			if(FreqDisplay2[0] == 48){
-				FreqDisplay2[0] = 32;
-				if(FreqDisplay2[1] == 48){
-					FreqDisplay2[1] = 32;
-				}
-			}
-		}
-	}
-	else{
-		FreqDisplay2[0] = 72;
-		FreqDisplay2[1] = 122;
-		FreqDisplay2[2] = 0;
-	}
-
-	PushButtonTextSet(&g_psBotButtons[0], FreqDisplay1);
-	PushButtonTextSet(&g_psBotButtons[1], FreqDisplay2);
 
 	Amp1[2] = Amp1[1] - Amp1[0];
 	Amp2[2] = Amp2[1] - Amp2[0];
 
 	Amp1[3] = (Amp1[2]/pixel_divider1)*mvpixel[Mag1];
 	Amp2[3] = (Amp2[2]/pixel_divider2)*mvpixel[Mag2];
+
+	measnum++;
+	if(measnum == MeasureAvg){
+		measnum = 0;
+		for(i=0;i<MeasureAvg;i++){
+			if(Freq1[i] != 0){
+				Frequency1Total = Frequency1Total + Freq1[i];
+				NumFreqs1++;
+			}
+			if(Freq2[i] != 0){
+				Frequency2Total = Frequency2Total + Freq2[i];
+				NumFreqs2++;
+			}
+		}
+		Frequency1 = Frequency1Total/NumFreqs1;
+		Frequency2 = Frequency2Total/NumFreqs2;
+		Frequency1Total = 0;
+		Frequency2Total = 0;
+		NumFreqs1 = 0;
+		NumFreqs2 = 0;
+		// Intialize Frequency Values
+		for(i=0;i<MeasureAvg;i++){
+			Freq1[i] = 0;
+			Freq2[i] = 0;
+		}
+
+		if(Ch1on == 1){
+			if(Frequency1 > 1000000000){
+				FreqDisplay1[0] = (Frequency1/1000000000)%10 + 48;
+				FreqDisplay1[1] = 46;
+				FreqDisplay1[2] = (Frequency1/1000000000)%10 + 48;
+				FreqDisplay1[3] = (Frequency1/100000000)%10 + 48;
+				FreqDisplay1[4] = 32;
+				FreqDisplay1[5] = 77;
+				FreqDisplay1[6] = 72;
+				FreqDisplay1[7] = 122;
+				FreqDisplay1[8] = 0;
+			}
+			else if(Frequency1 > 100000000){
+				FreqDisplay1[0] = (Frequency1/100000000)%10 + 48;
+				FreqDisplay1[1] = (Frequency1/10000000)%10 + 48;
+				FreqDisplay1[2] = (Frequency1/1000000)%10 + 48;
+				FreqDisplay1[3] = 32;
+				FreqDisplay1[4] = 107;
+				FreqDisplay1[5] = 72;
+				FreqDisplay1[6] = 122;
+				FreqDisplay1[7] = 0;
+				FreqDisplay1[8] = 0;
+			}
+			else if(Frequency1 > 10000000){
+				FreqDisplay1[0] = (Frequency1/10000000)%10 + 48;
+				FreqDisplay1[1] = (Frequency1/1000000)%10 + 48;
+				FreqDisplay1[2] = 46;
+				FreqDisplay1[3] = (Frequency1/100000)%10 + 48;
+				FreqDisplay1[4] = 32;
+				FreqDisplay1[5] = 107;
+				FreqDisplay1[6] = 72;
+				FreqDisplay1[7] = 122;
+				FreqDisplay1[8] = 0;
+			}
+			else if(Frequency1 > 1000000){
+				FreqDisplay1[0] = (Frequency1/1000000)%10 + 48;
+				FreqDisplay1[1] = 46;
+				FreqDisplay1[2] = (Frequency1/100000)%10 + 48;
+				FreqDisplay1[3] = (Frequency1/10000)%10 + 48;
+				FreqDisplay1[4] = 32;
+				FreqDisplay1[5] = 107;
+				FreqDisplay1[6] = 72;
+				FreqDisplay1[7] = 122;
+				FreqDisplay1[8] = 0;
+			}
+			else if(Frequency1 > 100000){
+				FreqDisplay1[0] = (Frequency1/100000)%10 + 48;
+				FreqDisplay1[1] = (Frequency1/10000)%10 + 48;
+				FreqDisplay1[2] = (Frequency1/1000)%10 + 48;
+				FreqDisplay1[3] = 32;
+				FreqDisplay1[4] = 72;
+				FreqDisplay1[5] = 122;
+				FreqDisplay1[6] = 0;
+				FreqDisplay1[7] = 0;
+				FreqDisplay1[8] = 0;
+			}
+			else if(Frequency1 > 10000){
+				FreqDisplay1[0] = (Frequency1/10000)%10 + 48;
+				FreqDisplay1[1] = (Frequency1/1000)%10 + 48;
+				FreqDisplay1[2] = 46;
+				FreqDisplay1[3] = (Frequency1/100)%10 + 48;
+				FreqDisplay1[4] = 32;
+				FreqDisplay1[5] = 72;
+				FreqDisplay1[6] = 122;
+				FreqDisplay1[7] = 0;
+				FreqDisplay1[8] = 0;
+			}
+			else if(Frequency1 > 1000){
+				FreqDisplay1[0] = (Frequency1/1000)%10 + 48;
+				FreqDisplay1[1] = 46;
+				FreqDisplay1[2] = (Frequency1/100)%10 + 48;
+				FreqDisplay1[3] = (Frequency1/10)%10 + 48;
+				FreqDisplay1[4] = 32;
+				FreqDisplay1[5] = 72;
+				FreqDisplay1[6] = 122;
+				FreqDisplay1[7] = 0;
+				FreqDisplay1[8] = 0;
+			}
+			else{
+				FreqDisplay1[0] = (Frequency1/100)%10 + 48;
+				FreqDisplay1[1] = (Frequency1/10)%10 + 48;
+				FreqDisplay1[2] = Frequency1%10 + 48;
+				FreqDisplay1[3] = 32;
+				FreqDisplay1[4] = 109;;
+				FreqDisplay1[5] = 72;
+				FreqDisplay1[6] = 122;
+				FreqDisplay1[7] = 0;
+				FreqDisplay1[8] = 0;
+				if(FreqDisplay1[0] == 48){
+					FreqDisplay1[0] = 32;
+					if(FreqDisplay1[1] == 48){
+						FreqDisplay1[1] = 32;
+					}
+				}
+			}
+		}
+		else{
+			FreqDisplay1[0] = 72;
+			FreqDisplay1[1] = 122;
+			FreqDisplay1[2] = 0;
+		}
+
+		if(Ch2on == 1){
+			if(Frequency2 > 1000000000){
+				FreqDisplay2[0] = (Frequency2/1000000000)%10 + 48;
+				FreqDisplay2[1] = 46;
+				FreqDisplay2[2] = (Frequency2/1000000000)%10 + 48;
+				FreqDisplay2[3] = (Frequency2/100000000)%10 + 48;
+				FreqDisplay2[4] = 32;
+				FreqDisplay2[5] = 77;
+				FreqDisplay2[6] = 72;
+				FreqDisplay2[7] = 122;
+				FreqDisplay2[8] = 0;
+			}
+			else if(Frequency2 > 100000000){
+				FreqDisplay2[0] = (Frequency2/100000000)%10 + 48;
+				FreqDisplay2[1] = (Frequency2/10000000)%10 + 48;
+				FreqDisplay2[2] = (Frequency2/1000000)%10 + 48;
+				FreqDisplay2[3] = 32;
+				FreqDisplay2[4] = 107;
+				FreqDisplay2[5] = 72;
+				FreqDisplay2[6] = 122;
+				FreqDisplay2[7] = 0;
+				FreqDisplay2[8] = 0;
+			}
+			else if(Frequency2 > 10000000){
+				FreqDisplay2[0] = (Frequency2/10000000)%10 + 48;
+				FreqDisplay2[1] = (Frequency2/1000000)%10 + 48;
+				FreqDisplay2[2] = 46;
+				FreqDisplay2[3] = (Frequency2/100000)%10 + 48;
+				FreqDisplay2[4] = 32;
+				FreqDisplay2[5] = 107;
+				FreqDisplay2[6] = 72;
+				FreqDisplay2[7] = 122;
+				FreqDisplay2[8] = 0;
+			}
+			else if(Frequency2 > 1000000){
+				FreqDisplay2[0] = (Frequency2/1000000)%10 + 48;
+				FreqDisplay2[1] = 46;
+				FreqDisplay2[2] = (Frequency2/100000)%10 + 48;
+				FreqDisplay2[3] = (Frequency2/10000)%10 + 48;
+				FreqDisplay2[4] = 32;
+				FreqDisplay2[5] = 107;
+				FreqDisplay2[6] = 72;
+				FreqDisplay2[7] = 122;
+				FreqDisplay2[8] = 0;
+			}
+			else if(Frequency2 > 100000){
+				FreqDisplay2[0] = (Frequency2/100000)%10 + 48;
+				FreqDisplay2[1] = (Frequency2/10000)%10 + 48;
+				FreqDisplay2[2] = (Frequency2/1000)%10 + 48;
+				FreqDisplay2[3] = 32;
+				FreqDisplay2[4] = 72;
+				FreqDisplay2[5] = 122;
+				FreqDisplay2[6] = 0;
+				FreqDisplay2[7] = 0;
+				FreqDisplay2[8] = 0;
+			}
+			else if(Frequency2 > 10000){
+				FreqDisplay2[0] = (Frequency2/10000)%10 + 48;
+				FreqDisplay2[1] = (Frequency2/1000)%10 + 48;
+				FreqDisplay2[2] = 46;
+				FreqDisplay2[3] = (Frequency2/100)%10 + 48;
+				FreqDisplay2[4] = 32;
+				FreqDisplay2[5] = 72;
+				FreqDisplay2[6] = 122;
+				FreqDisplay2[7] = 0;
+				FreqDisplay2[8] = 0;
+			}
+			else if(Frequency2 > 1000){
+				FreqDisplay2[0] = (Frequency2/1000)%10 + 48;
+				FreqDisplay2[1] = 46;
+				FreqDisplay2[2] = (Frequency2/100)%10 + 48;
+				FreqDisplay2[3] = (Frequency2/10)%10 + 48;
+				FreqDisplay2[4] = 32;
+				FreqDisplay2[5] = 72;
+				FreqDisplay2[6] = 122;
+				FreqDisplay2[7] = 0;
+				FreqDisplay2[8] = 0;
+			}
+			else{
+				FreqDisplay2[0] = (Frequency2/100)%10 + 48;
+				FreqDisplay2[1] = (Frequency2/10)%10 + 48;
+				FreqDisplay2[2] = Frequency2%10 + 48;
+				FreqDisplay2[3] = 32;
+				FreqDisplay2[4] = 109;
+				FreqDisplay2[5] = 72;
+				FreqDisplay2[6] = 122;
+				FreqDisplay2[7] = 0;
+				FreqDisplay2[8] = 0;
+				if(FreqDisplay2[0] == 48){
+					FreqDisplay2[0] = 32;
+					if(FreqDisplay2[1] == 48){
+						FreqDisplay2[1] = 32;
+					}
+				}
+			}
+		}
+		else{
+			FreqDisplay2[0] = 72;
+			FreqDisplay2[1] = 122;
+			FreqDisplay2[2] = 0;
+		}
+
+		PushButtonTextSet(&g_psBotButtons[0], FreqDisplay1);
+		PushButtonTextSet(&g_psBotButtons[1], FreqDisplay2);
+	}
 
 	if(Ch1on == 1){
 		if(Amp1[3] < 1000){
@@ -3658,5 +3677,23 @@ void UpdateMeasurements(void){
 	}
 	PushButtonTextSet(&g_psBotButtons[2], MagDisplay1);
 	PushButtonTextSet(&g_psBotButtons[3], MagDisplay2);
+}
+
+void CalibrateOffset(){
+	uint32_t CalibrateTotal1 = 0, CalibrateTotal2 = 0;
+	uint16_t CalibrateAvg1 = 0, CalibrateAvg2 = 0;
+
+	for(i=0;i<SERIES_LENGTH;i++){
+		CalibrateTotal1 = CalibrateTotal1 + pixels[i];
+		CalibrateTotal2 = CalibrateTotal2 + pixels2[i];
+	}
+
+	CalibrateAvg1 = CalibrateTotal1/SERIES_LENGTH;
+	CalibrateAvg2 = CalibrateTotal2/SERIES_LENGTH;
+
+	level1 = CalibrateAvg1/pixel_divider1 - 2048/pixel_divider1 + 80;
+	level2 = CalibrateAvg2/pixel_divider2 - 2048/pixel_divider2 + 160;
+	midlevel1 = 2048/pixel_divider1 + level1;
+	midlevel2 = 2048/pixel_divider2 + level2;
 }
 //End Tommy Part////////////////////////////////////////////////////////////////////
