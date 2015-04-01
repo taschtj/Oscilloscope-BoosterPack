@@ -206,6 +206,7 @@ extern tContainerWidget g_sContainerFreMagnitudeC1;
 extern tContainerWidget g_sContainerFreMagnitudeC2;
 extern tContainerWidget g_sContainerVolMagnitudeC1;
 extern tContainerWidget g_sContainerVolMagnitudeC2;
+extern tContainerWidget  g_sContainerMath;
 extern tRadioButtonWidget g_sRadioBtn2;
 extern tRadioButtonWidget g_sRadioBtn3;
 extern tRadioButtonWidget g_sRadioBtnAcquire;
@@ -217,6 +218,8 @@ extern tRadioButtonWidget g_sRadioBtnMinimum;
 extern tRadioButtonWidget g_sRadioBtnAverage;
 extern tSliderWidget g_sTriggerSliderVertical;
 extern tSliderWidget g_sTriggerSliderHorizontal;
+extern tSliderWidget g_sC1Slider;
+extern tSliderWidget g_sC2Slider;
 //for grid
 int x;
 int y;
@@ -251,11 +254,16 @@ double ASCtoDouble(char t[]);
 void TriggerFunction(tWidget *pWidget);
 void OnSliderChangeVertical(tWidget *psWidget, int32_t i32Value);
 void OnSliderChangeHorizontal(tWidget *psWidget, int32_t i32Value);
+void OnSliderChangeC1(tWidget *psWidget, int32_t i32Value);
+void OnSliderChangeC2(tWidget *psWidget, int32_t i32Value);
 void RunStop(tWidget *psWidget);
 void UpdateMeasurements(void);
 void CalibrateOffset(void);
 void AutoScale(tWidget *psWidget);
-
+void OnMathChange(tWidget *psWidget, uint32_t bSelected);
+void MenuSelectRadioBtns(tWidget *psWidget, uint32_t bSelected);
+void MathSelectRadioBtns(tWidget *psWidget, uint32_t bSelected);
+void TriggerModeSelect(tWidget *psWidget, uint32_t bSelected);
 tPushButtonWidget g_psTopButtons[];
 tPushButtonWidget g_psBotButtons[];
 
@@ -385,14 +393,28 @@ RectangularButton(g_sPushBtnMinusTime, &g_sAddMinusTime, 0, 0,
 		ClrGray, ClrWhite, ClrWhite, ClrWhite, g_psFontCm16, "-", 0, 0, 0, 0,
 		MinusTimeDiv);
 
+
+//////////////Sliders for trigger
 Slider(g_sTriggerSliderVertical,0, 0, 0, &g_sKentec320x240x16_SSD2119, 310, 29, 10, 183, 29, 211, 29,
                 ( SL_STYLE_BACKG_FILL|SL_STYLE_FILL|SL_STYLE_OUTLINE | SL_STYLE_VERTICAL),
-                ClrGray, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
+                ClrWhite, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
                 &g_sFontCm20, 0, 0, 0, OnSliderChangeVertical);
-Slider(g_sTriggerSliderHorizontal,0, 0, 0, &g_sKentec320x240x16_SSD2119, 0, 202, 300, 10, 0, 300, 120,
+Slider(g_sTriggerSliderHorizontal,0, 0, 0, &g_sKentec320x240x16_SSD2119, 0, 202, 310, 10, 0, 300, 120,
                 ( SL_STYLE_BACKG_FILL|SL_STYLE_FILL|SL_STYLE_OUTLINE),
-                ClrGray, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
+                ClrWhite, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
                 &g_sFontCm20, 0, 0, 0, OnSliderChangeHorizontal);
+
+//////////////Sliders for channel 1 and 2
+Slider(g_sC1Slider,0, 0, 0, &g_sKentec320x240x16_SSD2119, 310, 29, 10, 183, 29, 211, 29,
+                ( SL_STYLE_BACKG_FILL|SL_STYLE_FILL|SL_STYLE_OUTLINE | SL_STYLE_VERTICAL),
+                ClrWhite, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
+                &g_sFontCm20, 0, 0, 0, OnSliderChangeC1);
+Slider(g_sC2Slider,0, 0, 0, &g_sKentec320x240x16_SSD2119, 0, 29, 10, 183, 29, 211, 29,
+                ( SL_STYLE_BACKG_FILL|SL_STYLE_FILL|SL_STYLE_OUTLINE|SL_STYLE_VERTICAL),
+                ClrWhite, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
+                &g_sFontCm20, 0, 0, 0, OnSliderChangeC2);
+
+
 ///////////////////////////////////////////////////////////////////////////
 ///Bottom Buttons///////////////////////////////////////////////////////
 tPushButtonWidget g_psBotButtons[] =
@@ -489,8 +511,9 @@ RadioButtonStruct(&g_sContainerTriggerMode, 0, 0,
 		&g_sKentec320x240x16_SSD2119, 212, 102, 48, 20, RB_STYLE_TEXT,
 		10, ClrBlack, ClrWhite, ClrYellow, g_psFontCmss14, "Nedge", 0,
 		0)};
-#define NUM_RADIO_BUTTONS_Sources      (sizeof(g_psRadioBtnTriggerMode) /   \
+#define NUM_RADIO_BUTTONS_TriggerMode     (sizeof(g_psRadioBtnTriggerMode) /   \
                                  sizeof(g_psRadioBtnTriggerMode[0]))
+
 Container(g_sContainerTriggerMode, 0, 0, g_psRadioBtnTriggerMode,
 		&g_sKentec320x240x16_SSD2119, 212, 80, 52, 45,
 		(CTR_STYLE_OUTLINE |CTR_STYLE_FILL ), ClrBlack, ClrWhite, ClrRed,
@@ -525,17 +548,19 @@ tRadioButtonWidget g_psRadioBtnMenu[] = {
 RadioButtonStruct(&g_sContainerMenu, g_psRadioBtnMenu + 1, 0,
 		&g_sKentec320x240x16_SSD2119, 266, 40, 48, 20, RB_STYLE_TEXT,
 		10, ClrBlack, ClrWhite, ClrRed, g_psFontCmss12, "Acquire", 0,
-		0),
+		MenuSelectRadioBtns),
 RadioButtonStruct(&g_sContainerMenu, g_psRadioBtnMenu + 2, 0,
 		&g_sKentec320x240x16_SSD2119, 266, 61, 48, 20, RB_STYLE_TEXT,
 		10, ClrBlack, ClrWhite, ClrRed, g_psFontCmss12, "Coupling", 0,
-		0),
+		MenuSelectRadioBtns),
 RadioButtonStruct(&g_sContainerMenu, g_psRadioBtnMenu + 3, 0,
 		&g_sKentec320x240x16_SSD2119, 266, 82, 48, 20, RB_STYLE_TEXT,
-		10, ClrBlack, ClrWhite, ClrRed, g_psFontCmss12, "Mode", 0, 0),
+		10, ClrBlack, ClrWhite, ClrRed, g_psFontCmss12, "Mode", 0, MenuSelectRadioBtns),
 RadioButtonStruct(&g_sContainerMenu, 0, 0, &g_sKentec320x240x16_SSD2119,
 		266, 103, 48, 20, RB_STYLE_TEXT, 10, ClrBlack, ClrWhite, ClrRed,
-		g_psFontCmss12, "Math", 0, 0) };
+		g_psFontCmss12, "Math", 0, MenuSelectRadioBtns) };
+#define NUM_RADIO_BUTTONS_Menus      (sizeof(g_psRadioBtnMenu) /   \
+                                 sizeof(g_psRadioBtnMenu[0]))
 
 ////Radio Buttons for Hz and V Pushbuttons////////////////////////////////////
 tRadioButtonWidget g_psRadioBtnFreqMagC1[] = {
@@ -586,7 +611,22 @@ RadioButtonStruct(&g_sContainerVolMagnitudeC2, 0, 0,
 		ClrBlack, ClrWhite, ClrYellow, g_psFontCmss12, "Average", 0, 0)
 
 };
+tRadioButtonWidget g_psRadioBtnMath[] = {
+		RadioButtonStruct(&g_sContainerMath, g_psRadioBtnMath+ 1, 0,
+				&g_sKentec320x240x16_SSD2119, 212, 29, 48, 20, RB_STYLE_TEXT, 10,
+				ClrBlack, ClrWhite, ClrYellow, g_psFontCmss12, "+", 0, MathSelectRadioBtns),
+		RadioButtonStruct(&g_sContainerMath, 0, 0,
+				&g_sKentec320x240x16_SSD2119, 212, 49, 48, 20, RB_STYLE_TEXT, 10,
+				ClrBlack, ClrWhite, ClrYellow, g_psFontCmss12, "-", 0, MathSelectRadioBtns)
+};
+#define NUM_RADIO_BUTTONS_Math      (sizeof(g_psRadioBtnMath) /   \
+                                 sizeof(g_psRadioBtnMath[0]))
 //////////////////////////////////////////////////////////////////////////////////
+Container(g_sContainerMath, 0, 0, g_psRadioBtnMath,
+		&g_sKentec320x240x16_SSD2119, 212, 29, 52, 40,
+		(CTR_STYLE_OUTLINE |CTR_STYLE_FILL ), ClrBlack, ClrWhite, ClrYellow,
+		g_psFontCm14, 0);
+
 Container(g_sContainerTriggers, 0, 0, g_psRadioBtnTriggers,
 		&g_sKentec320x240x16_SSD2119, 159, 28, 52, 85,
 		(CTR_STYLE_OUTLINE |CTR_STYLE_FILL ), ClrBlack, ClrWhite, ClrRed,
@@ -618,6 +658,10 @@ Container(g_sContainerVolMagnitudeC2, 0, 0, g_psRadioBtnVolMagC2,
 		&g_sKentec320x240x16_SSD2119, 159, 141, 52, 70,
 		(CTR_STYLE_OUTLINE |CTR_STYLE_FILL ), ClrBlack, ClrWhite, ClrYellow,
 		g_psFontCm14, 0);
+
+
+
+
 
 #define NUM_RADIO1_BUTTONS      (sizeof(g_psRadioBtnVolDiv0) /   \
                                  sizeof(g_psRadioBtnVolDiv0[0]))
@@ -1078,6 +1122,29 @@ void DRadioChannels(tWidget *pWidgetR){
 	}
 }
 
+void MathSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
+
+	  uint32_t ui32Idx;
+	  for(ui32Idx = 0; ui32Idx < NUM_RADIO_BUTTONS_Math; ui32Idx++)
+	  {
+	      if(psWidget == (tWidget *)(g_psRadioBtnTriggers + ui32Idx))
+	      {
+	          break;
+	      }
+	  }
+
+	  //Math add function
+	  if(ui32Idx==0){
+
+
+	  }
+	  //Math minus function
+	  else if(ui32Idx==1){
+
+	  }
+}
+
+
 void TriggerSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
 
 	  uint32_t ui32Idx;
@@ -1092,21 +1159,59 @@ void TriggerSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
 	  if(ui32Idx==0){
 		  WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sContainerTriggerSource);
 		  WidgetPaint((tWidget * )&g_sContainerTriggerSource);
+		  WidgetRemove((tWidget *) &g_sContainerTriggerMode);
+		  WidgetRemove((tWidget *) &g_sTriggerSliderVertical);
+		  WidgetRemove((tWidget *) &g_sTriggerSliderHorizontal);
+
 	  }
 	  else if(ui32Idx==1){
 		  WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sTriggerSliderVertical);
 		  WidgetPaint((tWidget * )&g_sTriggerSliderVertical);
+		  WidgetRemove((tWidget *) &g_sContainerTriggerSource);
+		  WidgetRemove((tWidget *) &g_sContainerTriggerMode);
+		  WidgetRemove((tWidget *) &g_sTriggerSliderHorizontal);
 	  }
 	  else if(ui32Idx==2){
 		  WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sTriggerSliderHorizontal);
 		  WidgetPaint((tWidget * )&g_sTriggerSliderHorizontal);
+		  WidgetRemove((tWidget *) &g_sContainerTriggerSource);
+		  WidgetRemove((tWidget *) &g_sContainerTriggerMode);
+		  WidgetRemove((tWidget *) &g_sTriggerSliderVertical);
+
 	  	  }
 	  else{
 		  WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sContainerTriggerMode);
 		  WidgetPaint((tWidget * )&g_sContainerTriggerMode);
+		  WidgetRemove((tWidget *) &g_sContainerTriggerSource);
+		  WidgetRemove((tWidget *) &g_sTriggerSliderVertical);
+		  WidgetRemove((tWidget *) &g_sTriggerSliderHorizontal);
 
 	  }
 }
+
+void TriggerModeSelect(tWidget *psWidget, uint32_t bSelected){
+	uint32_t ui32Idx;
+		  for(ui32Idx = 0; ui32Idx < NUM_RADIO_BUTTONS_TriggerMode; ui32Idx++)
+		  {
+		      if(psWidget == (tWidget *)(g_psRadioBtnTriggerMode + ui32Idx))
+		      {
+		          break;
+		      }
+		  }
+
+////////Pedge
+		  if(ui32Idx==0){
+
+
+		  }
+////////Nedge
+		  else  if(ui32Idx==1) {
+
+		  }
+
+
+}
+
 void ChannelSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
 	  uint32_t ui32Idx;
 	  for(ui32Idx = 0; ui32Idx < NUM_RADIO_BUTTONS_Channels; ui32Idx++)
@@ -1119,15 +1224,28 @@ void ChannelSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
 	  if(ui32Idx==0){
 		  Ch1on = 1;
 		  Ch2on = 0;
+		  WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sC1Slider);
+		  WidgetPaint((tWidget * )&g_sC1Slider);
+		  WidgetRemove((tWidget *) &g_sC2Slider);
+
 	  }
 	  else if(ui32Idx==1){
 		  Ch1on = 0;
 		  Ch2on = 1;
+		  WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sC2Slider);
+		  WidgetPaint((tWidget * )&g_sC2Slider);
+		  WidgetRemove((tWidget *) &g_sC1Slider);
 	  }
 	  else{
 		  Ch1on = 1;
 		  Ch2on = 1;
+		  WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sC1Slider);
+		  WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sC2Slider);
+		  WidgetPaint((tWidget * )&g_sC1Slider);
+		  WidgetPaint((tWidget * )&g_sC2Slider);
 	  }
+//	  WidgetRemove((tWidget *) &g_sC1Slider);
+//	  WidgetRemove((tWidget *) &g_sC2Slider);
 }
 
 
@@ -1156,6 +1274,38 @@ void DRadioMenu(tWidget *pWidgetR) {
 	}
 
 }
+void MenuSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
+	  uint32_t ui32Idx;
+		  for(ui32Idx = 0; ui32Idx < NUM_RADIO_BUTTONS_Menus; ui32Idx++)
+		  {
+		      if(psWidget == (tWidget *)(g_psRadioBtnMenu + ui32Idx))
+		      {
+		          break;
+		      }
+		  }
+
+		  if(ui32Idx==0){
+
+
+		  }
+		  else if(ui32Idx==1){
+
+		  }
+		  else if(ui32Idx==2){
+
+
+		  	  }
+		  else{
+			  WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sContainerMath);
+			  WidgetPaint((tWidget * )&g_sContainerMath);
+
+		  }
+
+
+}
+
+
+
 void DWaveForm(tWidget *pWidgetR, tContext *psContext) {
 ///////////////////////////////////////////////////////////////////////
 
@@ -1410,10 +1560,45 @@ OnSliderChangeVertical(tWidget *psWidget, int32_t i32Value){
 
 
 }
-void
-OnSliderChangeHorizontal(tWidget *psWidget, int32_t i32Value){
+void OnSliderChangeHorizontal(tWidget *psWidget, int32_t i32Value){
 
 
+
+}
+
+
+////C1 level Change
+void OnSliderChangeC1(tWidget *psWidget, int32_t i32Value){
+
+
+
+}
+
+
+////C2 level Change
+void OnSliderChangeC2(tWidget *psWidget, int32_t i32Value){
+
+
+
+}
+void OnMathChange(tWidget *psWidget, uint32_t bSelected){
+	  uint32_t ui32Idx;
+	  for(ui32Idx = 0; ui32Idx < NUM_RADIO_BUTTONS_Channels; ui32Idx++)
+	  {
+	      if(psWidget == (tWidget *)(g_psRadioBtnChannels + ui32Idx))
+	      {
+	          break;
+	      }
+	  }
+	  ///Add for math function
+	  if(ui32Idx==0){
+
+	  }
+
+	  //Minus for math function
+	  else{
+
+	  }
 
 }
 
@@ -2136,8 +2321,12 @@ void ClrScreen() {
 //Clean all the widget running and repaint BackGround and Waveform
 void ClrMyWidget(){
 	WidgetRemove((tWidget *) &g_sContainerChannels);
-
+//	WidgetRemove((tWidget *) &g_sC1Slider);
+	WidgetRemove((tWidget *) &g_sContainerMath);
 	WidgetRemove((tWidget *) &g_sContainerTriggerSource);
+	WidgetRemove((tWidget *) &g_sContainerTriggerMode);
+	WidgetRemove((tWidget *) &g_sTriggerSliderVertical);
+	WidgetRemove((tWidget *) &g_sTriggerSliderHorizontal);
 	WidgetRemove((tWidget *) &g_sContainerTriggers);
 	WidgetRemove((tWidget *) &g_sContainerMenu);
 	WidgetRemove((tWidget *) &g_sContainerFreMagnitudeC1);
