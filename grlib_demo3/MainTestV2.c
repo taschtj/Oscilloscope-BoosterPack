@@ -2,7 +2,19 @@
  * MainTestV2.c
  *
  *  Created on: Dec 14, 2014
- *      Author: zhuangr
+ *      Author: Ruoyu Zhuang and Thomas Tasch
+ *
+ * This is the main C file for the oscilloscope BoosterPack program to be loaded
+ * onto a TM4C1294XL LaunchPad. This file both creates the touch screen user
+ * interface to be used with a BOOSTXL-K350QVG-S1 QVGA Display BoosterPack and
+ * the data acquisiton programming needed to capture the ditial signals from
+ * an ADS4222 Analog to Digital Converter.
+ *
+ * Special Thanks is given to the TI employees who wrote "Creating IoT Solutions
+ * with the Tiva® C Series Connected LaunchPad Workshop" and the "TivaWare™
+ * Peripheral Driver Library User's Guide". The examples and documentation within
+ * these books greatly helped with our design process.
+ *
  */
 
 #include <stdint.h>
@@ -24,8 +36,6 @@
 #include <math.h>
 #include "driverlib/fpu.h"
 #include "driverlib/debug.h"
-
-// Tommy includes
 #include "inc/hw_ints.h"
 #include "driverlib/pin_map.h"
 #include "driverlib/pwm.h"
@@ -75,56 +85,29 @@
 #define ACh2_Mult_A1	(GPIO_PIN_5)
 
 
-//*****************************************************************************
-//
-// The size of the memory transfer source and destination buffers (in words).
-//
-//*****************************************************************************
-#define MEM_BUFFER_SIZE         2048
+// The size of the memory buffer used for the DMA and the Maximum Size
+// of the circular buffer used to hold of the data
+#define MEM_BUFFER_SIZE         1024
 #define MaxSize					1024*20 // Must be multiple of MEM_BUFFER_SIZE
-#define MeasureAvg				10
-#define TimeAvg					320 // Multipy by MeasureAvg
 
-//*****************************************************************************
-//
-// The source and destination buffers used for memory transfers.
-//
-//*****************************************************************************
+// Number of samples to determine the average frequency measured and
+// number of time instances to measure over for the frequency
+#define MeasureAvg				10
+#define TimeAvg					320
+
+
+// The destination buffers used for memory transfers.
 static uint32_t *g_ui32DstBuf[MEM_BUFFER_SIZE];
 static uint32_t *g_ui32DstBuf2[MEM_BUFFER_SIZE];
+
+// The 12-bit values from the ADC channels
 uint16_t values[MaxSize], values2[MaxSize];
+
+// The raw inputs from the EPI
 uint32_t inputs[MEM_BUFFER_SIZE], inputs2[MEM_BUFFER_SIZE];
 
-//*****************************************************************************
-//
-// The count of uDMA errors.  This value is incremented by the uDMA error
-// handler.
-//
-//*****************************************************************************
-static uint32_t g_ui32uDMAErrCount = 0;
 
-//*****************************************************************************
-//
-// The count of times the uDMA interrupt occurred but the uDMA transfer was not
-// complete.  This should remain 0.
-//
-//*****************************************************************************
-static uint32_t g_ui32BadISR = 0;
-
-//*****************************************************************************
-//
-// The count of memory uDMA transfer blocks.  This value is incremented by the
-// uDMA interrupt handler whenever a memory block transfer is completed.
-//
-//*****************************************************************************
-static uint32_t g_ui32MemXferCount = 0, Done = 0;
-
-//*****************************************************************************
-//
-// The control table used by the uDMA controller.  This table must be aligned
-// to a 1024 byte boundary.
-//
-//*****************************************************************************
+// uDMA controller control table
 #if defined(ewarm)
 #pragma data_alignment=1024
 uint8_t pui8ControlTable[1024];
@@ -136,25 +119,26 @@ uint8_t pui8ControlTable[1024] __attribute__ ((aligned(1024)));
 #endif
 ////////////////////////////////////////////////////////
 
+// Clock frequency
 uint32_t ui32SysClkFreq;
 
-// Float points
-#ifndef M_PI
-#define M_PI 3.14159265358979323846f
-#endif
+// pixel length of screen
 #define SERIES_LENGTH 319
-float gSeriesData[SERIES_LENGTH];
+
 //
 //Intro pictures
 extern const uint8_t g_pui8Image[];
 extern const uint8_t g_pui9Image[];
 
 // global variables
-uint32_t totalsA[SERIES_LENGTH], totalsB[SERIES_LENGTH];
-uint16_t totalA, totalB;
-uint16_t l1 = 0, l2 = 0, measnum = 0;
-uint32_t i = 0, j = 0, f = 0, k = 0, m = 0, EPIDivide = 5;
-uint16_t freqref1 = 0, t1[TimeAvg], freqref2 = 0, t2[TimeAvg];
+uint32_t totalsA[SERIES_LENGTH], totalsB[SERIES_LENGTH]; // sum of values when using acquring mode
+uint16_t totalA, totalB; // calculated value of 12-bit inputs from ADC
+uint16_t l1 = 0, l2 = 0; //variables to keep track of which delta time is measured
+uint16_t measnum = 0; //variable to keep track of how many frequency measurements have been made
+uint32_t i = 0, j = 0, f = 0, k = 0, m = 0; // various variables to keep track of which index an array is at
+uint32_t EPIDivide = 5; // The clock frequency divider used to determine how fast the EPI should clock at
+uint16_t freqref1 = 0, freqref2 = 0;
+uint16_t t1[TimeAvg], t2[TimeAvg];
 uint8_t freqstart2 = 0, freqstop2 = 0, freqstart1 = 0, freqstop1 = 0;
 float t2Avg, t1Avg;
 uint32_t totalt1 = 0, totalt2 = 0;
@@ -162,16 +146,16 @@ uint16_t NumAvgt1 = 0, NumAvgt2 = 0;
 uint32_t Frequency1 = 0, Frequency2;
 uint64_t Frequency1Total = 0, Frequency2Total = 0;
 uint8_t NumFreqs1 = 0, NumFreqs2 = 0;
-uint16_t Amp1[4], Amp2[4], NumAvg = 10, *PTriggerLevel, TriggerLevel = 2000;
+uint16_t Amp1[4], Amp2[4], NumAvg = 10, *PTriggerLevel, TriggerLevel = 1000;
 uint32_t Freq1[MeasureAvg], Freq2[MeasureAvg];
 uint32_t receive[24], oppreceive[24], total, CountSize = 1024, count = 0, pixel_total = 0, pixel_average;
-uint8_t pri, alt, TriggerStart = 0, Trigger = 0, GoThrough = 0, CaptureMode = 0, TriggerMode = 0, begin = 0, TriggerSource = 1;
-uint16_t NumSkip = 2, TriggerPosition = 160, old1[SERIES_LENGTH], old2[SERIES_LENGTH], pixels[SERIES_LENGTH], pixels2[SERIES_LENGTH], midlevel1;
-uint16_t midlevel1, midlevel2, *plevel1, *plevel2, level1 = 80, level2 = 160;
+uint8_t pri, alt, TriggerStart = 0, Trigger = 0, GoThrough = 0, CaptureMode = 0, TriggerMode = 0, begin = 0, TriggerSource = 0;
+uint16_t NumSkip = 2, TriggerPosition = 0, old1[SERIES_LENGTH], old2[SERIES_LENGTH], pixels[SERIES_LENGTH], pixels2[SERIES_LENGTH], midlevel1;
+uint16_t midlevel1, midlevel2, *plevel1, *plevel2, level1 = 80, level2 = 160, desiredlevel1 = 80, desiredlevel2 = 160;
 uint32_t ui32Mode;
 int *EPISource;
 uint8_t below = 0, above = 0, clockout = 0, stop = 0, Ch1on = 1, Ch2on = 1, Ch1off = 0, Ch2off = 0;
-uint8_t Mag1 = 0, Mag2 = 0, Time = 0, minusbelow1 = 0, minusbelow2 = 0, minusabove1 = 0, minusabove2 = 0;
+uint8_t Mag1 = 0, Mag2 = 0, Time = 6, minusbelow1 = 0, minusbelow2 = 0, minusabove1 = 0, minusabove2 = 0;
 uint8_t outbelow1 = 0, outbelow2 = 0, outabove1 = 0, outabove2 = 0;
 uint8_t transfer_done[2] = {0,0}, stopped = 0;
 float pixel_divider1 = 5.461, pixel_divider2 = 5.461;
@@ -197,7 +181,7 @@ extern tPushButtonWidget g_sPushBtnAddC2;
 extern tPushButtonWidget g_sPushBtnMinusC2;
 extern tPushButtonWidget g_sPushBtnAddTime;
 extern tPushButtonWidget g_sPushBtnMinusTime;
-extern tContainerWidget g_sContainerMenu;
+extern tContainerWidget g_sContainerAcquire;
 extern tContainerWidget g_sContainerChannels;
 extern tContainerWidget g_sContainerTriggers;
 extern tContainerWidget g_sContainerTriggerSource;
@@ -207,15 +191,6 @@ extern tContainerWidget g_sContainerFreMagnitudeC2;
 extern tContainerWidget g_sContainerVolMagnitudeC1;
 extern tContainerWidget g_sContainerVolMagnitudeC2;
 extern tContainerWidget  g_sContainerMath;
-extern tRadioButtonWidget g_sRadioBtn2;
-extern tRadioButtonWidget g_sRadioBtn3;
-extern tRadioButtonWidget g_sRadioBtnAcquire;
-extern tRadioButtonWidget g_sRadioBtnCoupling;
-extern tRadioButtonWidget g_sRadioBtnMode;
-extern tRadioButtonWidget g_sRadioBtnMath;
-extern tRadioButtonWidget g_sRadioBtnMaximum;
-extern tRadioButtonWidget g_sRadioBtnMinimum;
-extern tRadioButtonWidget g_sRadioBtnAverage;
 extern tSliderWidget g_sTriggerSliderVertical;
 extern tSliderWidget g_sTriggerSliderHorizontal;
 extern tSliderWidget g_sC1Slider;
@@ -231,7 +206,7 @@ char magVolDivC1[] = { 32, 50, 48, 109, 86, 47, 100, 105, 118, 0 };
 char *tempTimVolDivC1;
 char timVolDivC1[] = { 32, 32, 50, 117, 115, 47, 100, 105, 118, 0 };
 void ClrScreen(void);
-void DRadioMenu(tWidget *pWidgetR);
+void DRadioAcquire(tWidget *pWidgetR);
 void DRadioChannels(tWidget *pWidgetR);
 void TriggerSelectRadioBtns(tWidget *psWidget, uint32_t bSelected);
 void ChannelSelectRadioBtns(tWidget *psWidget, uint32_t bSelected);
@@ -261,9 +236,10 @@ void UpdateMeasurements(void);
 void CalibrateOffset(void);
 void AutoScale(tWidget *psWidget);
 void OnMathChange(tWidget *psWidget, uint32_t bSelected);
-void MenuSelectRadioBtns(tWidget *psWidget, uint32_t bSelected);
+void AcquireSelectRadioBtns(tWidget *psWidget, uint32_t bSelected);
 void MathSelectRadioBtns(tWidget *psWidget, uint32_t bSelected);
 void TriggerModeSelect(tWidget *psWidget, uint32_t bSelected);
+void TriggerSourceSelect(tWidget *psWidget, uint32_t bSelected);
 tPushButtonWidget g_psTopButtons[];
 tPushButtonWidget g_psBotButtons[];
 
@@ -352,8 +328,8 @@ tPushButtonWidget g_psTopButtons[] =
 										52, 28,
 										(PB_STYLE_OUTLINE | PB_STYLE_TEXT_OPAQUE | PB_STYLE_TEXT | PB_STYLE_FILL),
 										ClrGray, ClrWhite, ClrWhite, ClrWhite,
-										g_psFontCm16, "Menu", 0, 0, 0, 0,
-										DRadioMenu) };
+										g_psFontCm16, "Acquire", 0, 0, 0, 0,
+										DRadioAcquire) };
 ////////////////////////////////////////////////////////////////////////////////////////////
 ////Magnitude Division Buttons//////////////////////////////////////////////////////////////////////////
 RectangularButton(g_sPushBtnAddC1, &g_sAddMinusC1, &g_sPushBtnMinusC1, 0,
@@ -405,11 +381,11 @@ Slider(g_sTriggerSliderHorizontal,0, 0, 0, &g_sKentec320x240x16_SSD2119, 0, 202,
                 &g_sFontCm20, 0, 0, 0, OnSliderChangeHorizontal);
 
 //////////////Sliders for channel 1 and 2
-Slider(g_sC1Slider,0, 0, 0, &g_sKentec320x240x16_SSD2119, 310, 29, 10, 183, 29, 211, 29,
+Slider(g_sC1Slider,0, 0, 0, &g_sKentec320x240x16_SSD2119, 300, 29, 20, 183, 29, 211, 29,
                 ( SL_STYLE_BACKG_FILL|SL_STYLE_FILL|SL_STYLE_OUTLINE | SL_STYLE_VERTICAL),
                 ClrWhite, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
                 &g_sFontCm20, 0, 0, 0, OnSliderChangeC1);
-Slider(g_sC2Slider,0, 0, 0, &g_sKentec320x240x16_SSD2119, 0, 29, 10, 183, 29, 211, 29,
+Slider(g_sC2Slider,0, 0, 0, &g_sKentec320x240x16_SSD2119, 0, 29, 20, 183, 29, 211, 29,
                 ( SL_STYLE_BACKG_FILL|SL_STYLE_FILL|SL_STYLE_OUTLINE|SL_STYLE_VERTICAL),
                 ClrWhite, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
                 &g_sFontCm20, 0, 0, 0, OnSliderChangeC2);
@@ -454,7 +430,7 @@ tPushButtonWidget g_psBotButtons[] =
 										52, 28,
 										(PB_STYLE_OUTLINE | PB_STYLE_TEXT_OPAQUE | PB_STYLE_TEXT | PB_STYLE_FILL),
 										ClrGray, ClrWhite, ClrWhite, ClrWhite,
-										g_psFontCm16, "Auto", 0, 0, 0, 0, AutoScale),
+										g_psFontCm16, "Offset", 0, 0, 0, 0, AutoScale),
 								RectangularButtonStruct(&g_sBottom, 0, 0,
 										&g_sKentec320x240x16_SSD2119, 265, 212,
 										52, 28,
@@ -490,11 +466,11 @@ tRadioButtonWidget g_psRadioBtnSource[] = {
 RadioButtonStruct(&g_sContainerTriggerSource, g_psRadioBtnSource + 1, 0,
 		&g_sKentec320x240x16_SSD2119, 212, 30, 48, 20, RB_STYLE_TEXT,
 		10, ClrBlack, ClrWhite, ClrRed, g_psFontCmss14, "  1", 0,
-		0),
+		TriggerSourceSelect),
 RadioButtonStruct(&g_sContainerTriggerSource, 0, 0,
 		&g_sKentec320x240x16_SSD2119, 212, 51, 48, 20, RB_STYLE_TEXT,
 		10, ClrBlack, ClrWhite, ClrYellow, g_psFontCmss14, "  2", 0,
-		0)};
+		TriggerSourceSelect)};
 #define NUM_RADIO_BUTTONS_Sources      (sizeof(g_psRadioBtnSource) /   \
                                  sizeof(g_psRadioBtnSource[0]))
 Container(g_sContainerTriggerSource, 0, 0, g_psRadioBtnSource,
@@ -506,11 +482,11 @@ tRadioButtonWidget g_psRadioBtnTriggerMode[] = {
 RadioButtonStruct(&g_sContainerTriggerMode, g_psRadioBtnTriggerMode + 1, 0,
 		&g_sKentec320x240x16_SSD2119, 212, 81, 48, 20, RB_STYLE_TEXT,
 		10, ClrBlack, ClrWhite, ClrRed, g_psFontCmss14, "Pedge", 0,
-		0),
+		TriggerModeSelect),
 RadioButtonStruct(&g_sContainerTriggerMode, 0, 0,
 		&g_sKentec320x240x16_SSD2119, 212, 102, 48, 20, RB_STYLE_TEXT,
 		10, ClrBlack, ClrWhite, ClrYellow, g_psFontCmss14, "Nedge", 0,
-		0)};
+		TriggerModeSelect)};
 #define NUM_RADIO_BUTTONS_TriggerMode     (sizeof(g_psRadioBtnTriggerMode) /   \
                                  sizeof(g_psRadioBtnTriggerMode[0]))
 
@@ -544,23 +520,39 @@ RadioButtonStruct(&g_sContainerChannels, 0, 0,
 
 
 ///Radio Buttons for the menu//////////////////////////////////////////////
-tRadioButtonWidget g_psRadioBtnMenu[] = {
-RadioButtonStruct(&g_sContainerMenu, g_psRadioBtnMenu + 1, 0,
+//tRadioButtonWidget g_psRadioBtnMenu[] = {
+//RadioButtonStruct(&g_sContainerMenu, g_psRadioBtnMenu + 1, 0,
+//		&g_sKentec320x240x16_SSD2119, 266, 40, 48, 20, RB_STYLE_TEXT,
+//		10, ClrBlack, ClrWhite, ClrRed, g_psFontCmss12, "Normal", 0,
+//		MenuSelectRadioBtns),
+//RadioButtonStruct(&g_sContainerMenu, g_psRadioBtnMenu + 2, 0,
+//		&g_sKentec320x240x16_SSD2119, 266, 61, 48, 20, RB_STYLE_TEXT,
+//		10, ClrBlack, ClrWhite, ClrRed, g_psFontCmss12, "Average", 0,
+//		MenuSelectRadioBtns),
+//RadioButtonStruct(&g_sContainerMenu, g_psRadioBtnMenu + 3, 0,
+//		&g_sKentec320x240x16_SSD2119, 266, 82, 48, 20, RB_STYLE_TEXT,
+//		10, ClrBlack, ClrWhite, ClrRed, g_psFontCmss12, "Mode", 0, MenuSelectRadioBtns),
+//RadioButtonStruct(&g_sContainerMenu, 0, 0, &g_sKentec320x240x16_SSD2119,
+//		266, 103, 48, 20, RB_STYLE_TEXT, 10, ClrBlack, ClrWhite, ClrRed,
+//		g_psFontCmss12, "Math", 0, MenuSelectRadioBtns) };
+//#define NUM_RADIO_BUTTONS_Menus      (sizeof(g_psRadioBtnMenu) /   \
+//                                 sizeof(g_psRadioBtnMenu[0]))
+
+tRadioButtonWidget g_psRadioBtnAcquire[] = {
+RadioButtonStruct(&g_sContainerAcquire, g_psRadioBtnAcquire + 1, 0,
 		&g_sKentec320x240x16_SSD2119, 266, 40, 48, 20, RB_STYLE_TEXT,
-		10, ClrBlack, ClrWhite, ClrRed, g_psFontCmss12, "Acquire", 0,
-		MenuSelectRadioBtns),
-RadioButtonStruct(&g_sContainerMenu, g_psRadioBtnMenu + 2, 0,
+		10, ClrBlack, ClrWhite, ClrRed, g_psFontCmss12, "Normal", 0,
+		AcquireSelectRadioBtns),
+RadioButtonStruct(&g_sContainerAcquire,  0, 0,
 		&g_sKentec320x240x16_SSD2119, 266, 61, 48, 20, RB_STYLE_TEXT,
-		10, ClrBlack, ClrWhite, ClrRed, g_psFontCmss12, "Coupling", 0,
-		MenuSelectRadioBtns),
-RadioButtonStruct(&g_sContainerMenu, g_psRadioBtnMenu + 3, 0,
-		&g_sKentec320x240x16_SSD2119, 266, 82, 48, 20, RB_STYLE_TEXT,
-		10, ClrBlack, ClrWhite, ClrRed, g_psFontCmss12, "Mode", 0, MenuSelectRadioBtns),
-RadioButtonStruct(&g_sContainerMenu, 0, 0, &g_sKentec320x240x16_SSD2119,
-		266, 103, 48, 20, RB_STYLE_TEXT, 10, ClrBlack, ClrWhite, ClrRed,
-		g_psFontCmss12, "Math", 0, MenuSelectRadioBtns) };
-#define NUM_RADIO_BUTTONS_Menus      (sizeof(g_psRadioBtnMenu) /   \
-                                 sizeof(g_psRadioBtnMenu[0]))
+		10, ClrBlack, ClrWhite, ClrRed, g_psFontCmss12, "Average", 0,
+		AcquireSelectRadioBtns)};
+#define NUM_RADIO_BUTTONS_Acquire      (sizeof(g_psRadioBtnAcquire) /   \
+                                 sizeof(g_psRadioBtnAcquire[0]))
+
+
+
+
 
 ////Radio Buttons for Hz and V Pushbuttons////////////////////////////////////
 tRadioButtonWidget g_psRadioBtnFreqMagC1[] = {
@@ -638,8 +630,8 @@ Container(g_sContainerChannels, 0, 0, g_psRadioBtnChannels,
 		(CTR_STYLE_OUTLINE |CTR_STYLE_FILL ), ClrBlack, ClrWhite, ClrRed,
 		g_psFontCm14, 0);
 
-Container(g_sContainerMenu, 0, 0, g_psRadioBtnMenu,
-		&g_sKentec320x240x16_SSD2119, 265, 28, 52, 115,
+Container(g_sContainerAcquire, 0, 0, g_psRadioBtnAcquire,
+		&g_sKentec320x240x16_SSD2119, 265, 28, 52, 60,
 		(CTR_STYLE_OUTLINE |CTR_STYLE_FILL ), ClrBlack, ClrWhite, ClrRed,
 		g_psFontCm14, 0);
 Container(g_sContainerFreMagnitudeC1, 0, 0, g_psRadioBtnFreqMagC1,
@@ -667,8 +659,8 @@ Container(g_sContainerVolMagnitudeC2, 0, 0, g_psRadioBtnVolMagC2,
                                  sizeof(g_psRadioBtnVolDiv0[0]))
 void AddMagDivC1(tWidget *psWidget) {
 
-	if(Mag1 == 13)
-		Mag1 = 13;
+	if(Mag1 == 10)
+		Mag1 = 10;
 	else
 		Mag1++;
 
@@ -737,9 +729,9 @@ void MinusMagDivC1(tWidget *psWidget) {
 		magVolDivC1[2] = 48;
 		magVolDivC1[3] = 109;
 	}
-	//stay at 2mv/div
-	else if (magVolDivC1[2] == 50 && magVolDivC1[3] == 109)
-		magVolDivC1[2] = 50;
+	//stay at 20mv/div
+	else if (magVolDivC1[1] == 50 && magVolDivC1[3] == 109)
+		magVolDivC1[1] = 50;
 	else if (*tempMagVolDivC1 == 50)
 		*tempMagVolDivC1 = 49;
 	else if (*tempMagVolDivC1 == 49) {
@@ -756,8 +748,8 @@ void MinusMagDivC1(tWidget *psWidget) {
 }
 void AddMagDivC2(tWidget *psWidget) {
 
-	if(Mag2 == 13)
-		Mag2 = 13;
+	if(Mag2 == 10)
+		Mag2 = 10;
 	else
 		Mag2++;
 
@@ -824,9 +816,9 @@ void MinusMagDivC2(tWidget *psWidget) {
 		magVolDivC2[2] = 48;
 		magVolDivC2[3] = 109;
 	}
-	//stay at 2mv/div
-	else if (magVolDivC2[2] == 50 && magVolDivC2[3] == 109)
-		magVolDivC2[2] = 50;
+	//stay at 20mv/div
+	else if (magVolDivC2[1] == 50 && magVolDivC2[3] == 109)
+		magVolDivC2[1] = 50;
 	else if (*tempMagVolDivC2 == 50)
 		*tempMagVolDivC2 = 49;
 	else if (*tempMagVolDivC2 == 49) {
@@ -906,8 +898,8 @@ void AddTimeDiv(tWidget *psWidget) {
 }
 void MinusTimeDiv(tWidget *psWidget) {
 
-	if(Time == 0)
-		Time = 0;
+	if(Time == 6)
+		Time = 6;
 	else
 		Time--;
 
@@ -941,9 +933,9 @@ void MinusTimeDiv(tWidget *psWidget) {
 		timVolDivC1[2] = 48;
 		timVolDivC1[3] = 110;
 	}
-	//stay at 20ns/div
-	else if (timVolDivC1[1] == 50 && timVolDivC1[3] == 110)
-		timVolDivC1[1] = 50;
+	//stay at 2us/div
+	else if (timVolDivC1[2] == 50 && timVolDivC1[3] == 117)
+		timVolDivC1[2] = 50;
 
 	//from 5 to 2
 	else if (*tempTimVolDivC1 == 53)
@@ -1059,8 +1051,8 @@ void AddMinusFunctionTime(tWidget *pWidget) {
 void DRadioFreMagnitudeC1(tWidget *pWidgetR) {
 	ButtonTF = !ButtonTF;
 	if (ButtonTF) {
-		WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sContainerFreMagnitudeC1);
-		WidgetPaint((tWidget * )&g_sContainerFreMagnitudeC1);
+		//WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sContainerFreMagnitudeC1);
+		//WidgetPaint((tWidget * )&g_sContainerFreMagnitudeC1);
 	} else {
 		ClrMyWidget();
 	}
@@ -1069,8 +1061,8 @@ void DRadioFreMagnitudeC1(tWidget *pWidgetR) {
 void DRadioFreMagnitudeC2(tWidget *pWidgetR) {
 	ButtonTF = !ButtonTF;
 	if (ButtonTF) {
-		WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sContainerFreMagnitudeC2);
-		WidgetPaint((tWidget * )&g_sContainerFreMagnitudeC2);
+		//WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sContainerFreMagnitudeC2);
+		//WidgetPaint((tWidget * )&g_sContainerFreMagnitudeC2);
 	} else {
 		ClrMyWidget();
 	}
@@ -1079,8 +1071,8 @@ void DRadioFreMagnitudeC2(tWidget *pWidgetR) {
 void DRadioVolMagnitudeC1(tWidget *pWidgetR) {
 	ButtonTF = !ButtonTF;
 	if (ButtonTF) {
-		WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sContainerVolMagnitudeC1);
-		WidgetPaint((tWidget * )&g_sContainerVolMagnitudeC1);
+		//WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sContainerVolMagnitudeC1);
+		//WidgetPaint((tWidget * )&g_sContainerVolMagnitudeC1);
 	} else {
 		ClrMyWidget();
 	}
@@ -1089,8 +1081,8 @@ void DRadioVolMagnitudeC1(tWidget *pWidgetR) {
 void DRadioVolMagnitudeC2(tWidget *pWidgetR) {
 	ButtonTF = !ButtonTF;
 	if (ButtonTF) {
-		WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sContainerVolMagnitudeC2);
-		WidgetPaint((tWidget * )&g_sContainerVolMagnitudeC2);
+		//WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sContainerVolMagnitudeC2);
+		//WidgetPaint((tWidget * )&g_sContainerVolMagnitudeC2);
 	} else {
 		ClrMyWidget();
 	}
@@ -1201,15 +1193,36 @@ void TriggerModeSelect(tWidget *psWidget, uint32_t bSelected){
 
 ////////Pedge
 		  if(ui32Idx==0){
-
+			  TriggerMode  = 0;
 
 		  }
 ////////Nedge
 		  else  if(ui32Idx==1) {
-
+			  TriggerMode  = 1;
 		  }
 
 
+}
+
+void TriggerSourceSelect(tWidget *psWidget, uint32_t bSelected){
+	uint32_t ui32Idx;
+		  for(ui32Idx = 0; ui32Idx < NUM_RADIO_BUTTONS_Sources; ui32Idx++)
+		  {
+		      if(psWidget == (tWidget *)(g_psRadioBtnSource + ui32Idx))
+		      {
+		          break;
+		      }
+		  }
+
+////////Source 1
+		  if(ui32Idx==0){
+			  TriggerSource = 1;
+
+		  }
+////////Source 2
+		  else  if(ui32Idx==1) {
+			  TriggerSource = 2;
+		  }
 }
 
 void ChannelSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
@@ -1249,7 +1262,7 @@ void ChannelSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
 }
 
 
-void DRadioMenu(tWidget *pWidgetR) {
+void DRadioAcquire(tWidget *pWidgetR) {
 	ButtonTF = !ButtonTF;
 	if (ButtonTF) {
 
@@ -1260,8 +1273,8 @@ void DRadioMenu(tWidget *pWidgetR) {
 			stop = 1;
 			stopped = 0;
 		}
-		WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sContainerMenu);
-		WidgetPaint((tWidget * )&g_sContainerMenu);
+		WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sContainerAcquire);
+		WidgetPaint((tWidget * )&g_sContainerAcquire);
 	} else {
 		ClrMyWidget();
 		if(stopped == 1){
@@ -1274,32 +1287,28 @@ void DRadioMenu(tWidget *pWidgetR) {
 	}
 
 }
-void MenuSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
+void AcquireSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
 	  uint32_t ui32Idx;
-		  for(ui32Idx = 0; ui32Idx < NUM_RADIO_BUTTONS_Menus; ui32Idx++)
+		  for(ui32Idx = 0; ui32Idx < NUM_RADIO_BUTTONS_Acquire; ui32Idx++)
 		  {
-		      if(psWidget == (tWidget *)(g_psRadioBtnMenu + ui32Idx))
+		      if(psWidget == (tWidget *)(g_psRadioBtnAcquire + ui32Idx))
 		      {
 		          break;
 		      }
 		  }
 
 		  if(ui32Idx==0){
-
+			  CaptureMode = 0;
 
 		  }
 		  else if(ui32Idx==1){
-
+			  CaptureMode = 1;
 		  }
-		  else if(ui32Idx==2){
-
-
-		  	  }
-		  else{
-			  WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sContainerMath);
-			  WidgetPaint((tWidget * )&g_sContainerMath);
-
-		  }
+//		  else{
+//			  WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sContainerMath);
+//			  WidgetPaint((tWidget * )&g_sContainerMath);
+//
+//		  }
 
 
 }
@@ -1309,7 +1318,44 @@ void MenuSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
 void DWaveForm(tWidget *pWidgetR, tContext *psContext) {
 ///////////////////////////////////////////////////////////////////////
 
-	for (x = 1; x < SERIES_LENGTH; x++) {
+
+	tRectangle Rect1, Rect2;
+	if(Ch1on == 1){
+		GrContextForegroundSet(&sContext, ClrRed);
+		Rect1.i16XMin = 0;
+		Rect1.i16YMin = desiredlevel1-2;
+		Rect1.i16XMax = 4;
+		Rect1.i16YMax = desiredlevel1+1;
+		GrRectFill(&sContext, &Rect1);
+	}
+	else if(Ch1on == 0 && Ch1off == 0){
+		GrContextForegroundSet(&sContext, ClrBlack);
+		Rect1.i16XMin = 0;
+		Rect1.i16YMin = desiredlevel1-2;
+		Rect1.i16XMax = 4;
+		Rect1.i16YMax = desiredlevel1+1;
+		GrRectFill(&sContext, &Rect1);
+	}
+
+	if(Ch2on == 1){
+		GrContextForegroundSet(&sContext, ClrYellow);
+		Rect2.i16XMin = 0;
+		Rect2.i16YMin = desiredlevel2-2;
+		Rect2.i16XMax = 4;
+		Rect2.i16YMax = desiredlevel2+1;
+		GrRectFill(&sContext, &Rect2);
+	}
+	else if(Ch2on == 0 && Ch2off == 0){
+		GrContextForegroundSet(&sContext, ClrBlack);
+		Rect2.i16XMin = 0;
+		Rect2.i16YMin = desiredlevel2-2;
+		Rect2.i16XMax = 4;
+		Rect2.i16YMax = desiredlevel2+1;
+		GrRectFill(&sContext, &Rect2);
+	}
+
+
+	for (x = 7; x < SERIES_LENGTH; x++) {
 		GrContextForegroundSet(&sContext, ClrBlack);
 		//GrCircleFill(&sContext, x, old1[x-1], 1);
 		if(Ch1on == 1){
@@ -1529,7 +1575,7 @@ void TriggerFunction(tWidget *pWidget){
 void
 OnSliderChangeVertical(tWidget *psWidget, int32_t i32Value){
 
-	SetupTrigger((midlevel1 - (240 - (uint16_t) i32Value))*pixel_divider1,0,0,1);
+	TriggerLevel = (midlevel1 - (240 - (uint16_t) i32Value));
 
 
 //    static char pcCanvasText[5];
@@ -1562,7 +1608,7 @@ OnSliderChangeVertical(tWidget *psWidget, int32_t i32Value){
 }
 void OnSliderChangeHorizontal(tWidget *psWidget, int32_t i32Value){
 
-
+TriggerPosition = i32Value;
 
 }
 
@@ -1570,7 +1616,8 @@ void OnSliderChangeHorizontal(tWidget *psWidget, int32_t i32Value){
 ////C1 level Change
 void OnSliderChangeC1(tWidget *psWidget, int32_t i32Value){
 
-
+desiredlevel1 = 240 - i32Value;
+midlevel1 = 2048/pixel_divider1 + desiredlevel1;
 
 }
 
@@ -1578,7 +1625,8 @@ void OnSliderChangeC1(tWidget *psWidget, int32_t i32Value){
 ////C2 level Change
 void OnSliderChangeC2(tWidget *psWidget, int32_t i32Value){
 
-
+desiredlevel2 = 240 - i32Value;
+midlevel2 = 2048/pixel_divider2 + desiredlevel2;
 
 }
 void OnMathChange(tWidget *psWidget, uint32_t bSelected){
@@ -1831,7 +1879,7 @@ int main(void) {
 								}
 							}
 							else
-								if(values2[f + k*MEM_BUFFER_SIZE-1] <= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel){
+								if(0){//values2[f + k*MEM_BUFFER_SIZE-1] <= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel){
 									TriggerStart = 1;
 									Trigger = 1;
 								}
@@ -2322,13 +2370,13 @@ void ClrScreen() {
 void ClrMyWidget(){
 	WidgetRemove((tWidget *) &g_sContainerChannels);
 //	WidgetRemove((tWidget *) &g_sC1Slider);
-	WidgetRemove((tWidget *) &g_sContainerMath);
+//	WidgetRemove((tWidget *) &g_sContainerMath);
 	WidgetRemove((tWidget *) &g_sContainerTriggerSource);
 	WidgetRemove((tWidget *) &g_sContainerTriggerMode);
 	WidgetRemove((tWidget *) &g_sTriggerSliderVertical);
 	WidgetRemove((tWidget *) &g_sTriggerSliderHorizontal);
 	WidgetRemove((tWidget *) &g_sContainerTriggers);
-	WidgetRemove((tWidget *) &g_sContainerMenu);
+	WidgetRemove((tWidget *) &g_sContainerAcquire);
 	WidgetRemove((tWidget *) &g_sContainerFreMagnitudeC1);
 	WidgetRemove((tWidget *) &g_sContainerFreMagnitudeC2);
 	WidgetRemove((tWidget *) &g_sContainerVolMagnitudeC1);
@@ -2343,7 +2391,7 @@ void ClrMyWidget(){
 }
 
 
-//Transfre the ASCII value to the double value
+//Transfer the ASCII value to the double value
 double ASCtoDouble(char t[]){
 	int x;
 	int temp=0;
@@ -2366,52 +2414,10 @@ double ASCtoDouble(char t[]){
 	 return num;
 }
 
-//Tommy Part///////////////////////////////////////////////////////////////////////////////////////
-
-//*****************************************************************************
-//
-// The error routine that is called if the driver library encounters an error.
-//
-//*****************************************************************************
-#ifdef DEBUG
-void
-__error__(char *pcFilename, uint32_t ui32Line)
-{
-}
-#endif
-
-//*****************************************************************************
-//
-// The interrupt handler for uDMA errors.  This interrupt will occur if the
-// uDMA encounters a bus error while trying to perform a transfer.  This
-// handler just increments a counter if an error occurs.
-//
-//*****************************************************************************
-void uDMAErrorHandler(void) {
-	uint32_t ui32Status;
-
-	//
-	// Check for uDMA error bit
-	//
-	ui32Status = uDMAErrorStatusGet();
-
-	//
-	// If there is a uDMA error, then clear the error and increment
-	// the error counter.
-	//
-	if (ui32Status) {
-		uDMAErrorStatusClear();
-		g_ui32uDMAErrCount++;
-	}
-}
-
 ////////////////////////////////////////////////////////
 // EPI interrupt fuction
 //////////////////////////////////////////////////
 void EPIIntHandler(void) {
-
-	//EPINonBlockingReadConfigure(EPI0_BASE,0,EPI_NBCONFIG_SIZE_32,0);
-	//EPINonBlockingReadStart(EPI0_BASE,0,CountSize);
 
 	//
 	// Check for the primary control structure to indicate complete.
@@ -2419,19 +2425,7 @@ void EPIIntHandler(void) {
 	ui32Mode = EPIIntStatus(EPI0_BASE, true);
 	uDMAIntClear(UDMA_CHANNEL_SW);
 	EPIIntErrorClear(EPI0_BASE, EPI_INT_ERR_DMARDIC);
-	if (ui32Mode == EPI_INT_RXREQ) {
-		//
-		// Increment the count of completed transfers.
-		//
-		g_ui32MemXferCount++;
-
-		//EPINonBlockingReadConfigure(EPI0_BASE,0,EPI_NBCONFIG_SIZE_32,0);
-		//EPINonBlockingReadStart(EPI0_BASE,0,CountSize);
-
-	}
-	if (ui32Mode == EPI_INT_DMA_RX_DONE) { //EPI_IM_DMARDIM EPI0_EPI_IM EPI_INT_RXREQ
-
-		Done++;
+	if (ui32Mode == EPI_INT_DMA_RX_DONE) {
 
 		pri = pui8ControlTable[488] & 0b11;
 		alt = pui8ControlTable[1000] & 0b11;
@@ -2459,14 +2453,6 @@ void EPIIntHandler(void) {
 			EPINonBlockingReadConfigure(EPI0_BASE, 1, EPI_NBCONFIG_SIZE_32, 0);
 			EPINonBlockingReadStart(EPI0_BASE, 1, CountSize);
 		}
-
-	}
-
-	//
-	// If the channel is not stopped, then something is wrong.
-	//
-	else {
-		g_ui32BadISR++;
 
 	}
 
@@ -2886,7 +2872,8 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
 			break;
 		case 7: // 500mV/div
-			pixel_divider1 = 18.728;
+			//pixel_divider1 = 18.728;
+			pixel_divider1 = 43.073;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
@@ -2897,7 +2884,8 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
 			break;
 		case 8: // 1V/div
-			pixel_divider1 = 27.772;
+			//pixel_divider1 = 27.772;
+			pixel_divider1 = 43.176;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
@@ -2908,7 +2896,8 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
 			break;
 		case 9: // 2V/div
-			pixel_divider1 = 23.6887;
+			//pixel_divider1 = 23.6887;
+			pixel_divider1 = 54.484;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
@@ -2918,8 +2907,9 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
 			break;
-		case 10: // 5V/div
-			pixel_divider1 = 59.222;
+		case 10: // 5V/div 2.5V/div
+			//pixel_divider1 = 59.222;
+			pixel_divider1 = 68.105;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
@@ -2961,6 +2951,7 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
+			break;
 		default:
 			// Multiplexer
 			pixel_divider1 = 296.108;
@@ -3054,7 +3045,8 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
 			break;
 		case 7: // 500mV/div
-			pixel_divider2 = 18.728;
+			//pixel_divider2 = 18.728;
+			pixel_divider2 = 43.073;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
@@ -3065,7 +3057,8 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
 			break;
 		case 8: // 1V/div
-			pixel_divider2 = 27.772;
+			//pixel_divider2 = 27.772;
+			pixel_divider2 = 43.176;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
@@ -3076,7 +3069,8 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
 			break;
 		case 9: // 2V/div
-			pixel_divider2 = 23.6887;
+			//pixel_divider2 = 23.6887;
+			pixel_divider2 = 54.484;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
@@ -3086,8 +3080,9 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
 			break;
-		case 10: // 5V/div
-			pixel_divider2 = 59.222;
+		case 10: // 5V/div 2.5V/div
+			//pixel_divider2 = 59.222;
+			pixel_divider2 = 68.105;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
@@ -3129,6 +3124,7 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,ECh2_DVGA_D1);
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
+			break;
 		default:
 			pixel_divider2 = 296.108;
 			// Multiplexer
@@ -3880,8 +3876,8 @@ void CalibrateOffset(){
 	CalibrateAvg1 = CalibrateTotal1/SERIES_LENGTH;
 	CalibrateAvg2 = CalibrateTotal2/SERIES_LENGTH;
 
-	level1 = CalibrateAvg1/pixel_divider1 - 2048/pixel_divider1 + 80;
-	level2 = CalibrateAvg2/pixel_divider2 - 2048/pixel_divider2 + 160;
+	level1 = CalibrateAvg1/pixel_divider1 - 2048/pixel_divider1 + desiredlevel1;
+	level2 = CalibrateAvg2/pixel_divider2 - 2048/pixel_divider2 + desiredlevel2;
 	midlevel1 = 2048/pixel_divider1 + level1;
 	midlevel2 = 2048/pixel_divider2 + level2;
 }
