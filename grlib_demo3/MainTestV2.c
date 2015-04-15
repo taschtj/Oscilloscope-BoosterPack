@@ -137,33 +137,47 @@ uint16_t l1 = 0, l2 = 0; //variables to keep track of which delta time is measur
 uint16_t measnum = 0; //variable to keep track of how many frequency measurements have been made
 uint32_t i = 0, j = 0, f = 0, k = 0, m = 0; // various variables to keep track of which index an array is at
 uint32_t EPIDivide = 5; // The clock frequency divider used to determine how fast the EPI should clock at
-uint16_t freqref1 = 0, freqref2 = 0;
-uint16_t t1[TimeAvg], t2[TimeAvg];
-uint8_t freqstart2 = 0, freqstop2 = 0, freqstart1 = 0, freqstop1 = 0;
-float t2Avg, t1Avg;
-uint32_t totalt1 = 0, totalt2 = 0;
-uint16_t NumAvgt1 = 0, NumAvgt2 = 0;
-uint32_t Frequency1 = 0, Frequency2;
-uint64_t Frequency1Total = 0, Frequency2Total = 0;
-uint8_t NumFreqs1 = 0, NumFreqs2 = 0;
-uint16_t Amp1[4], Amp2[4], NumAvg = 10, *PTriggerLevel, TriggerLevel = 1000;
-uint32_t Freq1[MeasureAvg], Freq2[MeasureAvg];
-uint32_t receive[24], oppreceive[24], total, CountSize = 1024, count = 0, pixel_total = 0, pixel_average;
-uint8_t pri, alt, TriggerStart = 0, Trigger = 0, GoThrough = 0, CaptureMode = 0, TriggerMode = 0, begin = 0, TriggerSource = 0;
-uint16_t NumSkip = 2, TriggerPosition = 0, old1[SERIES_LENGTH], old2[SERIES_LENGTH], pixels[SERIES_LENGTH], pixels2[SERIES_LENGTH], midlevel1;
-uint16_t midlevel1, midlevel2, *plevel1, *plevel2, level1 = 80, level2 = 160, desiredlevel1 = 80, desiredlevel2 = 160;
-uint32_t ui32Mode;
-int *EPISource;
-uint8_t below = 0, above = 0, clockout = 0, stop = 0, Ch1on = 1, Ch2on = 1, Ch1off = 0, Ch2off = 0;
-uint8_t Mag1 = 0, Mag2 = 0, Time = 6, minusbelow1 = 0, minusbelow2 = 0, minusabove1 = 0, minusabove2 = 0;
-uint8_t outbelow1 = 0, outbelow2 = 0, outabove1 = 0, outabove2 = 0;
-uint8_t transfer_done[2] = {0,0}, stopped = 0;
-float pixel_divider1 = 5.461, pixel_divider2 = 5.461;
-float mvpixel[14], secpixel[29];
-char MagDisplay1[7], MagDisplay2[7];
-char FreqDisplay1[9], FreqDisplay2[9];
-
-
+uint16_t freqref1 = 0, freqref2 = 0; // signal value that frequency calculation is based on
+uint16_t t1[TimeAvg], t2[TimeAvg]; // array of delta times to calculate frequency
+uint8_t freqstart2 = 0, freqstop2 = 0, freqstart1 = 0, freqstop1 = 0; // variables to help determine when to start and stopcounting delta time instances
+float t2Avg, t1Avg; // average number of delta time instances
+uint32_t totalt1 = 0, totalt2 = 0; // sum of number of delta time instances
+uint16_t NumAvgt1 = 0, NumAvgt2 = 0; // number of measured delta time instances greater than 0
+uint32_t Frequency1 = 0, Frequency2; // calculated average frequency
+uint64_t Frequency1Total = 0, Frequency2Total = 0; // sum of all calculated frequencies
+uint8_t NumFreqs1 = 0, NumFreqs2 = 0; // number of measured frequencies greater than 0
+uint16_t Amp1[4], Amp2[4]; // Amplitude information for signals (0-Min,1-Max,2-Amplitude in pixels,3-Amplitude in mV)
+uint16_t NumAvg = 10; // Number of sets to average when using averaging acquire mode
+uint16_t *PTriggerLevel, TriggerLevel = 1000; // Trigger level of signal in pixels and pointer for it
+uint32_t Freq1[MeasureAvg], Freq2[MeasureAvg]; // calcuated frequencies
+uint32_t receive[24]; // array of all bits received from ADC
+uint32_t CountSize = 1024; // length of count size for non blocking EPI read assignment
+uint8_t pri, alt; // variables to set when primary or alternate DMA transfers are complete
+uint8_t TriggerStart = 0, Trigger = 0; // to set when to start triggering and to set if a trigger was found within an iteration
+uint8_t GoThrough = 0; // varialbe to set if no trigger is found when going through iteration
+uint8_t CaptureMode = 0, TriggerMode = 0; // variables that determine the acquire (0-normal,1-average) and trigger (0-positive edge,1-negative-edge) modes for the scope
+uint8_t begin = 0; // variable to help determine when the values before the trigger position have already been found
+uint8_t TriggerSource = 1; // determines which signal to trigger off of (1-source 1,2-source 2)
+uint16_t NumSkip = 2; // sets the number of values to skip over in order to achieve correct time scale
+uint16_t TriggerPosition = 0; // pixel number to start drawing after trigger is found
+uint16_t old1[SERIES_LENGTH], old2[SERIES_LENGTH], pixels[SERIES_LENGTH], pixels2[SERIES_LENGTH]; // pixel heights of both current and last signal
+uint16_t midlevel1, midlevel2; // 0V level for both channels 1 and 2 in pixels calibrated to pixel_divider
+uint16_t *plevel1, *plevel2, level1 = 80, level2 = 160; // 0V level for both channels 1 and 2 in pixels
+uint16_t desiredlevel1 = 80, desiredlevel2 = 160; // Desired 0V level for both channels 1 and 2 in pixels
+uint32_t EPIMode; // mode for the EPI interrupt
+int *EPISource; // pointer to starting address of EPI input values
+uint8_t stop = 0; // variable to determine whether the signal should keep updating or not
+uint8_t Ch1on = 1, Ch2on = 1, Ch1off = 0, Ch2off = 0; // variables to keep track of which signals should be displayed
+uint8_t Mag1 = 0, Mag2 = 0; // variables that keep track of which vertical scale division is being used
+uint8_t Time = 6; // variable that keeps track of which horiztonal scale divison is being used
+uint8_t minusbelow1 = 0, minusbelow2 = 0, minusabove1 = 0, minusabove2 = 0; // variables that keep track of whether the previous pixel was out of bounds (in pushbutton region)
+uint8_t outbelow1 = 0, outbelow2 = 0, outabove1 = 0, outabove2 = 0; // variables that keep track of whether the current pixel is out of bounds (in pushbutton region)
+uint8_t transfer_done[2] = {0,0}; // keeps track of when the primary or alternate DMA transfer has completed
+uint8_t stopped = 0; // keeps track of whether the signal was stopped from updating
+float pixel_divider1 = 5.461, pixel_divider2 = 5.461; // values describing how much the 12-bit ADC input should be divided by to obtain correct vertical scale divisions
+float mvpixel[14], secpixel[29]; // array of mV/pixel and seconds/pixel for every scale division
+char MagDisplay1[7], MagDisplay2[7]; // string of ASCII characters that display the peak-to-peak voltage of both signals
+char FreqDisplay1[9], FreqDisplay2[9]; // string of ASCII characters that display the frequencies of both signals
 
 //Define Widgets
 tContext sContext;
@@ -238,7 +252,7 @@ void OnSliderChangeC2(tWidget *psWidget, int32_t i32Value);
 void RunStop(tWidget *psWidget);
 void UpdateMeasurements(void);
 void CalibrateOffset(void);
-void AutoScale(tWidget *psWidget);
+void OffSet(tWidget *psWidget);
 void OnMathChange(tWidget *psWidget, uint32_t bSelected);
 void AcquireSelectRadioBtns(tWidget *psWidget, uint32_t bSelected);
 void MathSelectRadioBtns(tWidget *psWidget, uint32_t bSelected);
@@ -250,6 +264,7 @@ void setup(void);
 void SetupVoltageDivision(uint8_t Scale, uint8_t Channel);
 void SetupTimeDivision(uint8_t Scale);
 void SetupTrigger(uint16_t Level, uint8_t Start_Position, uint8_t Mode, uint8_t Source);
+void PixelsCalculation(void);
 
 
 
@@ -432,7 +447,7 @@ tPushButtonWidget g_psBotButtons[] =
 										52, 28,
 										(PB_STYLE_OUTLINE | PB_STYLE_TEXT_OPAQUE | PB_STYLE_TEXT | PB_STYLE_FILL),
 										ClrGray, ClrWhite, ClrWhite, ClrWhite,
-										g_psFontCm16, "Offset", 0, 0, 0, 0, AutoScale),
+										g_psFontCm16, "Offset", 0, 0, 0, 0, OffSet),
 								RectangularButtonStruct(&g_sBottom, 0, 0,
 										&g_sKentec320x240x16_SSD2119, 265, 212,
 										52, 28,
@@ -643,13 +658,16 @@ Container(g_sContainerVolMagnitudeC2, 0, 0, g_psRadioBtnVolMagC2,
 ////Add function for magnitude division for channel 1/////////////
 void AddMagDivC1(tWidget *psWidget) {
 
+	// make sure the variable keeping track of voltage division doesn't go out of bounds
 	if(Mag1 == 10)
 		Mag1 = 10;
 	else
 		Mag1++;
 
+	// setup the new voltage divison
 	SetupVoltageDivision(Mag1, 1);
 
+	// determine new midlevel with new pixel_divider
 	midlevel1 = 2048/pixel_divider1 + level1;
 	midlevel2 = 2048/pixel_divider2 + level2;
 
@@ -691,13 +709,16 @@ void AddMagDivC1(tWidget *psWidget) {
 ////Minus function for magnitude division for channel 1/////////////
 void MinusMagDivC1(tWidget *psWidget) {
 
+	// make sure the voltage divison variable doesn't go out of bounds
 	if(Mag1 == 0)
 		Mag1 = 0;
 	else
 		Mag1--;
 
+	// update voltage divison
 	SetupVoltageDivision(Mag1, 1);
 
+	// update midlevel based on new pixel_divider
 	midlevel1 = 2048/pixel_divider1 + level1;
 	midlevel2 = 2048/pixel_divider2 + level2;
 
@@ -736,13 +757,16 @@ void MinusMagDivC1(tWidget *psWidget) {
 ////Add function for magnitude division for channel 2/////////////
 void AddMagDivC2(tWidget *psWidget) {
 
+	// make sure voltage divison variable doesn't go out of bounds
 	if(Mag2 == 10)
 		Mag2 = 10;
 	else
 		Mag2++;
 
+	// update voltage divison parameters
 	SetupVoltageDivision(Mag2, 2);
 
+	// update midlevel based on new pixel_divider
 	midlevel1 = 2048/pixel_divider1 + level1;
 	midlevel2 = 2048/pixel_divider2 + level2;
 
@@ -782,13 +806,16 @@ void AddMagDivC2(tWidget *psWidget) {
 ////Minus function for magnitude division for channel 2/////////////
 void MinusMagDivC2(tWidget *psWidget) {
 
+	// make sure voltage division variable doesn't go out of bounds
 	if(Mag2 == 0)
 		Mag2 = 0;
 	else
 		Mag2--;
 
+	// update voltage divison parameters
 	SetupVoltageDivision(Mag2, 2);
 
+	// update midlevel based on new pixel_divider
 	midlevel1 = 2048/pixel_divider1 + level1;
 	midlevel2 = 2048/pixel_divider2 + level2;
 
@@ -827,13 +854,16 @@ void MinusMagDivC2(tWidget *psWidget) {
 ////Add function for time division for channel 1 & 2 /////////////
 void AddTimeDiv(tWidget *psWidget) {
 
+	// make sure time division variable doesn't go out of bounds
 	if(Time == 28)
 		Time = 28;
 	else
 		Time++;
 
+	// update time divison parameters
 	SetupTimeDivision(Time);
 
+	// update EPI clock rate with new EPIDivide
 	EPIDividerSet(EPI0_BASE, EPIDivide);
 
 	//make it 50 s
@@ -889,13 +919,16 @@ void AddTimeDiv(tWidget *psWidget) {
 ////Minus function for time division for channel 1 & 2 /////////////
 void MinusTimeDiv(tWidget *psWidget) {
 
+	// make sure time division variable doesn't go out of bounds
 	if(Time == 6)
 		Time = 6;
 	else
 		Time--;
 
+	// update time division parameters
 	SetupTimeDivision(Time);
 
+	// update EPI clock rate based on new EPIDivide
 	EPIDividerSet(EPI0_BASE, EPIDivide);
 
 	if (timVolDivC1[0] == 32 && timVolDivC1[1] == 32
@@ -1334,9 +1367,9 @@ void DWaveForm(tWidget *pWidgetR, tContext *psContext) {
 	}
 
 
+	// redraw over previous signal in black and remove signal if one of the channels have been disabled
 	for (x = 7; x < SERIES_LENGTH; x++) {
 		GrContextForegroundSet(&sContext, ClrBlack);
-		//GrCircleFill(&sContext, x, old1[x-1], 1);
 		if(Ch1on == 1){
 			Ch1off = 0;
 			GrLineDraw(&sContext,x-1,old1[x-1],x,old1[x]);
@@ -1354,46 +1387,42 @@ void DWaveForm(tWidget *pWidgetR, tContext *psContext) {
 			  Ch2off = 1;
 		}
 
-		//GrCircleFill(&sContext, x, old2[x-1], 1);
-
+		// if channel 2 should be on, draw lines to create signal
 		if(Ch2on == 1){
 			GrContextForegroundSet(&sContext, ClrYellow);
+			// if stopped, don't draw an updated signal
 			if(stop == 1){
 				GrLineDraw(&sContext,x-1,old2[x-1],x,old2[x]);
-				//GrCircleFill(&sContext, x, old2[x], 1);
 			}
 			else{
+				// determine which pixel values will be out of bounds
 				if((midlevel2 - pixels2[x-1] / pixel_divider2) < 29){
-					//GrCircleFill(&sContext, x, old2[x1] = 29, 1);
 					minusbelow2 = 1;
 				}
 				else{
 					minusbelow2 = 0;
 				}
 				if ((midlevel2 - pixels2[x-1] / pixel_divider2) > 210){
-					//GrCircleFill(&sContext, x, old2[x] = 210, 1);
 					minusabove2 = 1;
 				}
 				else{
 					minusabove2 = 0;
 				}
 				if((midlevel2 - pixels2[x] / pixel_divider2) < 29){
-					//GrCircleFill(&sContext, x, old2[x1] = 29, 1);
 					outbelow2 = 1;
 				}
 				else{
 					outbelow2 = 0;
 				}
 				if ((midlevel2 - pixels2[x] / pixel_divider2) > 210){
-					//GrCircleFill(&sContext, x, old2[x] = 210, 1);
 					outabove2 = 1;
 				}
 				else{
 					outabove2 = 0;
 				}
 
+				// draw the lines from  pixel to pixel based on acquired values unless they would go out of bounds
 				if(minusbelow2 == 0 && minusabove2 == 0 && outbelow2 == 0 && outabove2 == 0){
-					//GrCircleFill(&sContext, x, old2[x] = midlevel2 - pixels2[x] / pixel_divider2, 1);
 					GrLineDraw(&sContext,x-1,old2[x-1]=midlevel2 - pixels2[x-1] / pixel_divider2,x,midlevel2 - pixels2[x] / pixel_divider2);
 				}
 				else if(minusbelow2 == 1 && outbelow2 == 0 && outabove2 == 0){
@@ -1426,44 +1455,42 @@ void DWaveForm(tWidget *pWidgetR, tContext *psContext) {
 			}
 		}
 
+		// draw channel 1 signal if desired
 		if(Ch1on == 1){
 			GrContextForegroundSet(&sContext, ClrRed);
+			// if stopped, don't update signal
 			if(stop == 1){
 				GrLineDraw(&sContext,x-1,old1[x-1],x,old1[x]);
-				//GrCircleFill(&sContext, x, old1[x],1);
 			}
 			else{
+				// determine whici pixel values go out of bounds
 				if((midlevel1 - pixels[x-1] / pixel_divider1) < 29){
-					//GrCircleFill(&sContext, x, old1[x1] = 29, 1);
 					minusbelow1 = 1;
 				}
 				else{
 					minusbelow1 = 0;
 				}
 				if ((midlevel1 - pixels[x-1] / pixel_divider1) > 210){
-					//GrCircleFill(&sContext, x, old2[x] = 210, 1);
 					minusabove1 = 1;
 				}
 				else{
 					minusabove1 = 0;
 				}
 				if((midlevel1 - pixels[x] / pixel_divider1) < 29){
-					//GrCircleFill(&sContext, x, old2[x1] = 29, 1);
 					outbelow1 = 1;
 				}
 				else{
 					outbelow1 = 0;
 				}
 				if ((midlevel1 - pixels[x] / pixel_divider1) > 210){
-					//GrCircleFill(&sContext, x, old2[x] = 210, 1);
 					outabove1 = 1;
 				}
 				else{
 					outabove1 = 0;
 				}
 
+				// draw a line from pixel to pixel based on acquired values unless they go out of bounds
 				if(minusbelow1 == 0 && minusabove1 == 0 && outbelow1 == 0 && outabove1 == 0){
-					//GrCircleFill(&sContext, x, old2[x] = midlevel2 - pixels2[x] / pixel_divider2, 1);
 					GrLineDraw(&sContext,x-1,old1[x-1]=midlevel1 - pixels[x-1] / pixel_divider1,x,midlevel1 - pixels[x] / pixel_divider1);
 				}
 				else if(minusbelow1 == 1 && outbelow1 == 0 && outabove1 == 0){
@@ -1494,15 +1521,6 @@ void DWaveForm(tWidget *pWidgetR, tContext *psContext) {
 					GrLineDraw(&sContext,x-1,old1[x-1]=210,x,210);
 				}
 			}
-			/*else{
-				if((midlevel1 - pixels[x] / pixel_divider1) < 29)
-					GrCircleFill(&sContext, x, old1[x] = 29,1);
-				else if ((midlevel1 - pixels[x] / pixel_divider1) > 210)
-					GrCircleFill(&sContext, x, old1[x] = 210,1);
-				else
-					GrLineDraw(&sContext,x-1,old1[x-1]=midlevel1 - pixels[x-1] / pixel_divider1,x,midlevel1 - pixels[x] / pixel_divider1);
-					//GrCircleFill(&sContext, x, old1[x] = midlevel1 - pixels[x] / pixel_divider1,1);
-			}*/
 		}
 
 	}
@@ -1510,7 +1528,6 @@ void DWaveForm(tWidget *pWidgetR, tContext *psContext) {
 	GrLineDraw(&sContext,319,29,319,210);
 	GrLineDraw(&sContext,318,29,318,210);
 	GrLineDraw(&sContext,317,29,317,210);
-	//GrLineDraw(&sContext,316,29,316,210);
 	GrContextForegroundSet(&sContext, ClrWhite);
 	GrCircleFill(&sContext, 160, 119, 3);
 //////////////////////////////////////////////////////////////////////
@@ -1629,6 +1646,7 @@ void OnMathChange(tWidget *psWidget, uint32_t bSelected){
 
 }
 
+// determine whether to keep signal updating
 void RunStop(tWidget *psWidget){
 	if(stop == 0)
 		stop = 1;
@@ -1636,12 +1654,14 @@ void RunStop(tWidget *psWidget){
 		stop = 0;
 }
 
-void AutoScale(tWidget *psWidget){
+// remove DC offset for testing purposes
+void OffSet(tWidget *psWidget){
 	CalibrateOffset();
 }
 
 //
 int main(void) {
+	// Set clock frequency to 120 MHz
 	ui32SysClkFreq = SysCtlClockFreqSet((SYSCTL_XTAL_25MHZ |
 	SYSCTL_OSC_MAIN | SYSCTL_USE_PLL |
 	SYSCTL_CFG_VCO_480), 120000000);
@@ -1670,650 +1690,23 @@ int main(void) {
 	WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sWaveform);
 	WidgetPaint(WIDGET_ROOT);
 
+	// setup all peripherals
 	setup();
 
 	WidgetPaint(WIDGET_ROOT);
 	while (1) {
 
+		// update all values when the primary transfer is complete
 		if (transfer_done[0] == 1) {
 				transfer_done[0] = 0;
-					for (f = 0; f < MEM_BUFFER_SIZE; f++) {
-
-						receive[0] = (inputs[f] & 0b00000000000000000000000000000001)/0b00000000000000000000000000000001;
-						receive[1] = (inputs[f] & 0b00000000000000000000000000000010)/0b00000000000000000000000000000010;
-						receive[2] = (inputs[f] & 0b00000000000000000000000000000100)/0b00000000000000000000000000000100;
-						receive[3] = (inputs[f] & 0b00000000000000000000000000001000)/0b00000000000000000000000000001000;
-						receive[4] = (inputs[f] & 0b00000000000000000000000000010000)/0b00000000000000000000000000010000;
-						receive[5] = (inputs[f] & 0b00000000000000000000000000100000)/0b00000000000000000000000000100000;
-						receive[6] = (inputs[f] & 0b00000000000000000000000001000000)/0b00000000000000000000000001000000;
-						receive[7] = (inputs[f] & 0b00000000000000000000000010000000)/0b00000000000000000000000010000000;
-						receive[8] = (inputs[f] & 0b00000000000000000000000100000000)/0b00000000000000000000000100000000;
-						receive[9] = (inputs[f] & 0b00000000000000000000001000000000)/0b00000000000000000000001000000000;
-						receive[10] = (inputs[f] & 0b00000000000000000000100000000000)/0b00000000000000000000100000000000;
-						receive[11] = (inputs[f] & 0b00000000000000000001000000000000)/0b00000000000000000001000000000000;
-						receive[12] = (inputs[f] & 0b00000000000000000010000000000000)/0b00000000000000000010000000000000;
-						receive[13] = (inputs[f] & 0b00000000000000000100000000000000)/0b00000000000000000100000000000000;
-						receive[14] = (inputs[f] & 0b00000000000000001000000000000000)/0b00000000000000001000000000000000;
-						receive[15] = (inputs[f] & 0b00000000000000010000000000000000)/0b00000000000000010000000000000000;
-						receive[16] = (inputs[f] & 0b00000000000000100000000000000000)/0b00000000000000100000000000000000;
-						receive[17] = (inputs[f] & 0b00000000000001000000000000000000)/0b00000000000001000000000000000000;
-						receive[18] = (inputs[f] & 0b00000000000010000000000000000000)/0b00000000000010000000000000000000;
-						receive[19] = (inputs[f] & 0b00000001000000000000000000000000)/0b00000001000000000000000000000000;
-						receive[20] = (inputs[f] & 0b00000010000000000000000000000000)/0b00000010000000000000000000000000;
-						receive[21] = (inputs[f] & 0b00000100000000000000000000000000)/0b00000100000000000000000000000000;
-						receive[22] = (inputs[f] & 0b00001000000000000000000000000000)/0b00001000000000000000000000000000;
-						receive[23] = (inputs[f] & 0b00010000000000000000000000000000)/0b00010000000000000000000000000000;
-
-						if(receive[11] == 0){
-
-							totalA = 2048 + (receive[0] + 2*receive[1] + 4*receive[2] + 8*receive[3]
-							         + 16*receive[4] + 32*receive[5] + 64*receive[6] + 128*receive[7]
-							         + 1*(256*receive[8] + 512*receive[9] + 1024*receive[10]));
-
-							values[f + k*MEM_BUFFER_SIZE] = totalA & 0b00000000000000000000111111111111;
-						}
-						else{
-
-							if(receive[0])
-								receive[0] = 0;
-							else
-								receive[0] = 1;
-
-							if(receive[1])
-								receive[1] = 0;
-							else
-								receive[1] = 1;
-
-							if(receive[2])
-								receive[2] = 0;
-							else
-								receive[2] = 1;
-
-							if(receive[3])
-								receive[3] = 0;
-							else
-								receive[3] = 1;
-
-							if(receive[4])
-								receive[4] = 0;
-							else
-								receive[4] = 1;
-
-							if(receive[5])
-								receive[5] = 0;
-							else
-								receive[5] = 1;
-
-							if(receive[6])
-								receive[6] = 0;
-							else
-								receive[6] = 1;
-
-							if(receive[7])
-								receive[7] = 0;
-							else
-								receive[7] = 1;
-
-							if(receive[8])
-								receive[8] = 0;
-							else
-								receive[8] = 1;
-
-							if(receive[9])
-								receive[9] = 0;
-							else
-								receive[9] = 1;
-
-							if(receive[10])
-								receive[10] = 0;
-							else
-								receive[10] = 1;
-
-							totalA = 2048 - (1 + receive[0] + 2*receive[1] + 4*receive[2] + 8*receive[3]
-							         + 16*receive[4] + 32*receive[5] + 64*receive[6] + 128*receive[7]
-							         + 1*(256*receive[8] + 512*receive[9] + 1024*receive[10]));
-
-							values[f + k*MEM_BUFFER_SIZE] = totalA & 0b00000000000000000000111111111111;
-						}
-
-						if(receive[23] == 0){
-
-							totalB = 2048 + (receive[12] + 2*receive[13] + 4*receive[14] + 8*receive[15]
-							         + 16*receive[16] + 32*receive[17] + 64*receive[18] + 128*receive[19]
-							         + 1*(256*receive[20] + 512*receive[21] + 1024*receive[22]));
-
-							values2[f + k*MEM_BUFFER_SIZE] = totalB & 0b00000000000000000000111111111111;
-						}
-						else{
-
-							if(receive[12])
-								receive[12] = 0;
-							else
-								receive[12] = 1;
-
-							if(receive[13])
-								receive[13] = 0;
-							else
-								receive[13] = 1;
-
-							if(receive[14])
-								receive[14] = 0;
-							else
-								receive[14] = 1;
-
-							if(receive[15])
-								receive[15] = 0;
-							else
-								receive[15] = 1;
-
-							if(receive[16])
-								receive[16] = 0;
-							else
-								receive[16] = 1;
-
-							if(receive[17])
-								receive[17] = 0;
-							else
-								receive[17] = 1;
-
-							if(receive[18])
-								receive[18] = 0;
-							else
-								receive[18] = 1;
-
-							if(receive[19])
-								receive[19] = 0;
-							else
-								receive[19] = 1;
-
-							if(receive[20])
-								receive[20] = 0;
-							else
-								receive[20] = 1;
-
-							if(receive[21])
-								receive[21] = 0;
-							else
-								receive[21] = 1;
-
-							if(receive[22])
-								receive[22] = 0;
-							else
-								receive[22] = 1;
-
-							totalB = 2048 - (1 + receive[12] + 2*receive[13] + 4*receive[14] + 8*receive[15]
-							         + 16*receive[16] + 32*receive[17] + 64*receive[18] + 128*receive[19]
-							         + 1*(256*receive[20] + 512*receive[21] + 1024*receive[22]));
-
-							values2[f + k*MEM_BUFFER_SIZE] = totalB & 0b00000000000000000000111111111111;
-						}
-
-
-						if(TriggerMode == 0){
-							if(TriggerSource == 1){
-								if(values[f + k*MEM_BUFFER_SIZE-1] <= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel){
-									TriggerStart = 1;
-									Trigger = 1;
-								}
-							}
-							else
-								if(0){//values2[f + k*MEM_BUFFER_SIZE-1] <= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel){
-									TriggerStart = 1;
-									Trigger = 1;
-								}
-						}
-						else if(TriggerMode == 1){
-							if(TriggerSource == 1){
-								if(values[f + k*MEM_BUFFER_SIZE-1] >= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel){
-									TriggerStart = 1;
-									Trigger = 1;
-								}
-							}
-							else
-								if(values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel){
-									TriggerStart = 1;
-									Trigger = 1;
-								}
-						}
-
-						if(TriggerStart == 1){
-							if(CaptureMode == 0){
-								if(begin == 0){
-									begin=1;
-									for(i=0;i<TriggerPosition;i++){
-										if((int32_t) (f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1)) < 0){
-											pixels[i] = values[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1))];
-											pixels2[i] = values2[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1))];
-										}
-										else{
-											pixels[i] = values[f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1)];
-											pixels2[i] = values2[f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1)];
-										}
-									}
-								}
-								if(j<NumSkip){
-									j++;
-								}
-								else{
-									j=0;
-									if(m < SERIES_LENGTH){
-										pixels[m] = values[f + k*MEM_BUFFER_SIZE];
-										pixels2[m] = values2[f + k*MEM_BUFFER_SIZE];
-										m++;
-									}
-									else{
-										UpdateMeasurements();
-										m = 0;
-										begin = 0;
-										TriggerStart = 0;
-									}
-								}
-							}
-							else if(CaptureMode == 1){
-								if(begin == 0){
-									begin=1;
-									if(j<NumAvg){
-										for(i=0;i<TriggerPosition;i++){
-											if((int32_t) (f + k*MEM_BUFFER_SIZE - TriggerPosition) < 0){
-												totalsA[i] = totalsA[i] + values[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i)];
-												totalsB[i] = totalsB[i] + values2[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i)];
-											}
-											else{
-												totalsA[i] = totalsA[i] + values[f + k*MEM_BUFFER_SIZE - TriggerPosition + i];
-												totalsB[i] = totalsB[i] + values2[f + k*MEM_BUFFER_SIZE - TriggerPosition + i];
-											}
-										}
-									}
-								}
-								if(j<NumAvg){
-									if(m < SERIES_LENGTH){
-										totalsA[m] = totalsA[m]+ values[f + k*MEM_BUFFER_SIZE];
-										totalsB[m] = totalsB[m]+ values2[f + k*MEM_BUFFER_SIZE];
-										m++;
-									}
-									else{
-										j++;
-										m=0;
-										begin = 0;
-										//totalsA[m] = totalsA[m]+ values[f + k*MEM_BUFFER_SIZE];
-										//totalsB[m] = totalsB[m]+ values2[f + k*MEM_BUFFER_SIZE];
-										//m++;
-										TriggerStart = 0;
-									}
-								}
-								else{
-									j = 0;
-									for(i=0;i<TriggerPosition;i++){
-										totalsA[i] = totalsA[i]/2;
-										totalsB[i] = totalsB[i]/2;
-									}
-									for(i=0;i<SERIES_LENGTH;i++){
-										pixels[i] = totalsA[i]/NumAvg;
-										pixels2[i] = totalsB[i]/NumAvg;
-									}
-									for(i=0;i<SERIES_LENGTH;i++){
-										totalsA[i] = 0;
-										totalsB[i] = 0;
-									}
-									UpdateMeasurements();
-									m = 0;
-									begin = 0;
-									TriggerStart = 0;
-								}
-							}
-						}
-					}
-					if(Trigger == 1){
-						GoThrough = 0;
-						Trigger = 0;
-					}
-					else
-						GoThrough++;
-
-					if(GoThrough > 200){
-						GoThrough = 20;
-					}
-
-					if(GoThrough >= 10){
-						/*for(i=SERIES_LENGTH;i>0;i--){
-							if((int32_t) (f + k*MEM_BUFFER_SIZE - i*(NumSkip+1)) < 0){
-								pixels[i] = values[MaxSize - (f + k*MEM_BUFFER_SIZE + i)];
-							}
-							else{
-								pixels[i] = values[f + k*MEM_BUFFER_SIZE - i*(NumSkip+1)];
-							}
-						}
-						for(i=SERIES_LENGTH*(NumSkip+1);i>0;i=i-(NumSkip+1)){
-							pixels[SERIES_LENGTH-i] = values[f + k*MEM_BUFFER_SIZE - i*(NumSkip+1)];
-							pixels2[SERIES_LENGTH-i] = values2[f + k*MEM_BUFFER_SIZE - i*(NumSkip+1)];
-						}*/
-						TriggerStart = 1;
-						UpdateMeasurements();
-					}
-
-				}
-
-				if(k*MEM_BUFFER_SIZE + MEM_BUFFER_SIZE < MaxSize)
-					k++;
-
-				else
-					k = 0;
-
-
-				if (transfer_done[1] == 1) {
-					transfer_done[1] = 0;
-					for (f = 0; f < MEM_BUFFER_SIZE; f++) {
-
-						receive[0] = (inputs2[f] & 0b00000000000000000000000000000001)/0b00000000000000000000000000000001;
-						receive[1] = (inputs2[f] & 0b00000000000000000000000000000010)/0b00000000000000000000000000000010;
-						receive[2] = (inputs2[f] & 0b00000000000000000000000000000100)/0b00000000000000000000000000000100;
-						receive[3] = (inputs2[f] & 0b00000000000000000000000000001000)/0b00000000000000000000000000001000;
-						receive[4] = (inputs2[f] & 0b00000000000000000000000000010000)/0b00000000000000000000000000010000;
-						receive[5] = (inputs2[f] & 0b00000000000000000000000000100000)/0b00000000000000000000000000100000;
-						receive[6] = (inputs2[f] & 0b00000000000000000000000001000000)/0b00000000000000000000000001000000;
-						receive[7] = (inputs2[f] & 0b00000000000000000000000010000000)/0b00000000000000000000000010000000;
-						receive[8] = (inputs2[f] & 0b00000000000000000000000100000000)/0b00000000000000000000000100000000;
-						receive[9] = (inputs2[f] & 0b00000000000000000000001000000000)/0b00000000000000000000001000000000;
-						receive[10] = (inputs2[f] & 0b00000000000000000000100000000000)/0b00000000000000000000100000000000;
-						receive[11] = (inputs2[f] & 0b00000000000000000001000000000000)/0b00000000000000000001000000000000;
-						receive[12] = (inputs2[f] & 0b00000000000000000010000000000000)/0b00000000000000000010000000000000;
-						receive[13] = (inputs2[f] & 0b00000000000000000100000000000000)/0b00000000000000000100000000000000;
-						receive[14] = (inputs2[f] & 0b00000000000000001000000000000000)/0b00000000000000001000000000000000;
-						receive[15] = (inputs2[f] & 0b00000000000000010000000000000000)/0b00000000000000010000000000000000;
-						receive[16] = (inputs2[f] & 0b00000000000000100000000000000000)/0b00000000000000100000000000000000;
-						receive[17] = (inputs2[f] & 0b00000000000001000000000000000000)/0b00000000000001000000000000000000;
-						receive[18] = (inputs2[f] & 0b00000000000010000000000000000000)/0b00000000000010000000000000000000;
-						receive[19] = (inputs2[f] & 0b00000001000000000000000000000000)/0b00000001000000000000000000000000;
-						receive[20] = (inputs2[f] & 0b00000010000000000000000000000000)/0b00000010000000000000000000000000;
-						receive[21] = (inputs2[f] & 0b00000100000000000000000000000000)/0b00000100000000000000000000000000;
-						receive[22] = (inputs2[f] & 0b00001000000000000000000000000000)/0b00001000000000000000000000000000;
-						receive[23] = (inputs2[f] & 0b00010000000000000000000000000000)/0b00010000000000000000000000000000;
-
-
-						if(receive[11] == 0){
-
-							totalA = 2048 + (receive[0] + 2*receive[1] + 4*receive[2] + 8*receive[3]
-							         + 16*receive[4] + 32*receive[5] + 64*receive[6] + 128*receive[7]
-							         + 1*(256*receive[8] + 512*receive[9] + 1024*receive[10]));
-
-							values[f + k*MEM_BUFFER_SIZE] = totalA & 0b00000000000000000000111111111111;
-						}
-						else{
-							if(receive[0])
-								receive[0] = 0;
-							else
-								receive[0] = 1;
-
-							if(receive[1])
-								receive[1] = 0;
-							else
-								receive[1] = 1;
-
-							if(receive[2])
-								receive[2] = 0;
-							else
-								receive[2] = 1;
-
-							if(receive[3])
-								receive[3] = 0;
-							else
-								receive[3] = 1;
-
-							if(receive[4])
-								receive[4] = 0;
-							else
-								receive[4] = 1;
-
-							if(receive[5])
-								receive[5] = 0;
-							else
-								receive[5] = 1;
-
-							if(receive[6])
-								receive[6] = 0;
-							else
-								receive[6] = 1;
-
-							if(receive[7])
-								receive[7] = 0;
-							else
-								receive[7] = 1;
-
-							if(receive[8])
-								receive[8] = 0;
-							else
-								receive[8] = 1;
-
-							if(receive[9])
-								receive[9] = 0;
-							else
-								receive[9] = 1;
-
-							if(receive[10])
-								receive[10] = 0;
-							else
-								receive[10] = 1;
-
-							totalA = 2048 - (1 + receive[0] + 2*receive[1] + 4*receive[2] + 8*receive[3]
-							         + 16*receive[4] + 32*receive[5] + 64*receive[6] + 128*receive[7]
-							         + 1*(256*receive[8] + 512*receive[9] + 1024*receive[10]));
-
-							values[f + k*MEM_BUFFER_SIZE] = totalA & 0b00000000000000000000111111111111;
-						}
-
-						if(receive[23] == 0){
-
-							totalB = 2048 + (receive[12] + 2*receive[13] + 4*receive[14] + 8*receive[15]
-							         + 16*receive[16] + 32*receive[17] + 64*receive[18] + 128*receive[19]
-							         + 1*(256*receive[20] + 512*receive[21] + 1024*receive[22]));
-
-							values2[f + k*MEM_BUFFER_SIZE] = totalB & 0b00000000000000000000111111111111;
-						}
-						else{
-
-							if(receive[12])
-								receive[12] = 0;
-							else
-								receive[12] = 1;
-
-							if(receive[13])
-								receive[13] = 0;
-							else
-								receive[13] = 1;
-
-							if(receive[14])
-								receive[14] = 0;
-							else
-								receive[14] = 1;
-
-							if(receive[15])
-								receive[15] = 0;
-							else
-								receive[15] = 1;
-
-							if(receive[16])
-								receive[16] = 0;
-							else
-								receive[16] = 1;
-
-							if(receive[17])
-								receive[17] = 0;
-							else
-								receive[17] = 1;
-
-							if(receive[18])
-								receive[18] = 0;
-							else
-								receive[18] = 1;
-
-							if(receive[19])
-								receive[19] = 0;
-							else
-								receive[19] = 1;
-
-							if(receive[20])
-								receive[20] = 0;
-							else
-								receive[20] = 1;
-
-							if(receive[21])
-								receive[21] = 0;
-							else
-								receive[21] = 1;
-
-							if(receive[22])
-								receive[22] = 0;
-							else
-								receive[22] = 1;
-
-							totalB = 2048 - (1 + receive[12] + 2*receive[13] + 4*receive[14] + 8*receive[15]
-							         + 16*receive[16] + 32*receive[17] + 64*receive[18] + 128*receive[19]
-							         + 1*(256*receive[20] + 512*receive[21] + 1024*receive[22]));
-
-							values2[f + k*MEM_BUFFER_SIZE] = totalB & 0b00000000000000000000111111111111;
-						}
-
-						if(TriggerMode == 0){
-							if(TriggerSource == 1){
-								if(values[f + k*MEM_BUFFER_SIZE-1] <= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel){
-									TriggerStart = 1;
-									Trigger = 1;
-								}
-							}
-							else
-								if(values2[f + k*MEM_BUFFER_SIZE-1] <= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel){
-									TriggerStart = 1;
-									Trigger = 1;
-								}
-						}
-						else if(TriggerMode == 1){
-							if(TriggerSource == 1){
-								if(values[f + k*MEM_BUFFER_SIZE-1] >= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel){
-									TriggerStart = 1;
-									Trigger = 1;
-								}
-							}
-							else
-								if(values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel){
-									TriggerStart = 1;
-									Trigger = 1;
-								}
-						}
-
-						if(TriggerStart == 1){
-							if(CaptureMode == 0){
-								if(begin == 0){
-									begin=1;
-									for(i=0;i<TriggerPosition;i++){
-										if((int32_t) (f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1)) < 0){
-											pixels[i] = values[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1))];
-											pixels2[i] = values2[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1))];
-										}
-										else{
-											pixels[i] = values[f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1)];
-											pixels2[i] = values2[f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1)];
-										}
-									}
-								}
-								if(j<NumSkip){
-									j++;
-								}
-								else{
-									j=0;
-									if(m < SERIES_LENGTH){
-										pixels[m] = values[f + k*MEM_BUFFER_SIZE];
-										pixels2[m] = values2[f + k*MEM_BUFFER_SIZE];
-										m++;
-									}
-									else{
-										UpdateMeasurements();
-										m = 0;
-										begin = 0;
-										TriggerStart = 0;
-									}
-								}
-							}
-							else if(CaptureMode == 1){
-								if(begin == 0){
-									begin=1;
-									if(j<(NumAvg-1)){
-										for(i=0;i<TriggerPosition;i++){
-											if((int32_t) (f + k*MEM_BUFFER_SIZE - TriggerPosition) < 0){
-												totalsA[i] = totalsA[i] + values[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i)];
-												totalsB[i] = totalsB[i] + values2[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i)];
-											}
-											else{
-												totalsA[i] = totalsA[i] + values[f + k*MEM_BUFFER_SIZE - TriggerPosition + i];
-												totalsB[i] = totalsB[i] + values2[f + k*MEM_BUFFER_SIZE - TriggerPosition + i];
-											}
-										}
-									}
-								}
-								if(j<NumAvg){
-									if(m < SERIES_LENGTH){
-										totalsA[m] = totalsA[m]+ values[f + k*MEM_BUFFER_SIZE];
-										totalsB[m] = totalsB[m]+ values2[f + k*MEM_BUFFER_SIZE];
-										m++;
-									}
-									else{
-										j++;
-										m=0;
-										begin = 0;
-										//totalsA[m] = totalsA[m]+ values[f + k*MEM_BUFFER_SIZE];
-										//totalsB[m] = totalsB[m]+ values2[f + k*MEM_BUFFER_SIZE];
-										//m++;
-										TriggerStart = 0;
-									}
-								}
-								else{
-									j = 0;
-									for(i=0;i<TriggerPosition;i++){
-										totalsA[i] = totalsA[i]/2;
-										totalsB[i] = totalsB[i]/2;
-									}
-									for(i=0;i<SERIES_LENGTH;i++){
-										pixels[i] = totalsA[i]/NumAvg;
-										pixels2[i] = totalsB[i]/NumAvg;
-									}
-									for(i=0;i<SERIES_LENGTH;i++){
-										totalsA[i] = 0;
-										totalsB[i] = 0;
-									}
-									UpdateMeasurements();
-									m = 0;
-									begin = 0;
-									TriggerStart = 0;
-								}
-							}
-						}
-					}
-					if(Trigger == 1){
-						GoThrough = 0;
-						Trigger = 0;
-					}
-					else
-						GoThrough++;
-
-					if(GoThrough > 200){
-						GoThrough = 20;
-					}
-
-					if(GoThrough >= 10){
-						/*for(i=SERIES_LENGTH;i>0;i--){
-							pixels[SERIES_LENGTH-i] = values[f + k*MEM_BUFFER_SIZE - i];
-							pixels2[SERIES_LENGTH-i] = values2[f + k*MEM_BUFFER_SIZE - i];
-						}*/
-						TriggerStart = 1;
-						UpdateMeasurements();
-					}
-
-				}
-
-				if(k*MEM_BUFFER_SIZE + MEM_BUFFER_SIZE < MaxSize)
-					k++;
-
-				else
-					k = 0;
+				PixelsCalculation();
+		}
+
+		// update all values when the alternate transfer is complete
+		if (transfer_done[1] == 1) {
+				transfer_done[1] = 0;
+				PixelsCalculation();
+		}
 
 				// Issue paint request to the widgets.
 
@@ -2332,6 +1725,336 @@ int main(void) {
 
 	}
 
+}
+
+void PixelsCalculation(void) {
+	// determine which bits are high and low
+	for (f = 0; f < MEM_BUFFER_SIZE; f++) {
+
+		receive[0] = (inputs[f] & 0b00000000000000000000000000000001)/0b00000000000000000000000000000001;
+		receive[1] = (inputs[f] & 0b00000000000000000000000000000010)/0b00000000000000000000000000000010;
+		receive[2] = (inputs[f] & 0b00000000000000000000000000000100)/0b00000000000000000000000000000100;
+		receive[3] = (inputs[f] & 0b00000000000000000000000000001000)/0b00000000000000000000000000001000;
+		receive[4] = (inputs[f] & 0b00000000000000000000000000010000)/0b00000000000000000000000000010000;
+		receive[5] = (inputs[f] & 0b00000000000000000000000000100000)/0b00000000000000000000000000100000;
+		receive[6] = (inputs[f] & 0b00000000000000000000000001000000)/0b00000000000000000000000001000000;
+		receive[7] = (inputs[f] & 0b00000000000000000000000010000000)/0b00000000000000000000000010000000;
+		receive[8] = (inputs[f] & 0b00000000000000000000000100000000)/0b00000000000000000000000100000000;
+		receive[9] = (inputs[f] & 0b00000000000000000000001000000000)/0b00000000000000000000001000000000;
+		receive[10] = (inputs[f] & 0b00000000000000000000100000000000)/0b00000000000000000000100000000000;
+		receive[11] = (inputs[f] & 0b00000000000000000001000000000000)/0b00000000000000000001000000000000;
+		receive[12] = (inputs[f] & 0b00000000000000000010000000000000)/0b00000000000000000010000000000000;
+		receive[13] = (inputs[f] & 0b00000000000000000100000000000000)/0b00000000000000000100000000000000;
+		receive[14] = (inputs[f] & 0b00000000000000001000000000000000)/0b00000000000000001000000000000000;
+		receive[15] = (inputs[f] & 0b00000000000000010000000000000000)/0b00000000000000010000000000000000;
+		receive[16] = (inputs[f] & 0b00000000000000100000000000000000)/0b00000000000000100000000000000000;
+		receive[17] = (inputs[f] & 0b00000000000001000000000000000000)/0b00000000000001000000000000000000;
+		receive[18] = (inputs[f] & 0b00000000000010000000000000000000)/0b00000000000010000000000000000000;
+		receive[19] = (inputs[f] & 0b00000001000000000000000000000000)/0b00000001000000000000000000000000;
+		receive[20] = (inputs[f] & 0b00000010000000000000000000000000)/0b00000010000000000000000000000000;
+		receive[21] = (inputs[f] & 0b00000100000000000000000000000000)/0b00000100000000000000000000000000;
+		receive[22] = (inputs[f] & 0b00001000000000000000000000000000)/0b00001000000000000000000000000000;
+		receive[23] = (inputs[f] & 0b00010000000000000000000000000000)/0b00010000000000000000000000000000;
+
+		// calculate decimal value if number is positive
+		if(receive[11] == 0){
+
+			totalA = 2048 + (receive[0] + 2*receive[1] + 4*receive[2] + 8*receive[3]
+			         + 16*receive[4] + 32*receive[5] + 64*receive[6] + 128*receive[7]
+			         + 1*(256*receive[8] + 512*receive[9] + 1024*receive[10]));
+
+			values[f + k*MEM_BUFFER_SIZE] = totalA & 0b00000000000000000000111111111111;
+		}
+		// calculate decimal value if number is negative
+		else{
+
+			// first negate all bits
+			if(receive[0])
+				receive[0] = 0;
+			else
+				receive[0] = 1;
+
+			if(receive[1])
+				receive[1] = 0;
+			else
+				receive[1] = 1;
+
+			if(receive[2])
+				receive[2] = 0;
+			else
+				receive[2] = 1;
+
+			if(receive[3])
+				receive[3] = 0;
+			else
+				receive[3] = 1;
+
+			if(receive[4])
+				receive[4] = 0;
+			else
+				receive[4] = 1;
+
+			if(receive[5])
+				receive[5] = 0;
+			else
+				receive[5] = 1;
+
+			if(receive[6])
+				receive[6] = 0;
+			else
+				receive[6] = 1;
+
+			if(receive[7])
+				receive[7] = 0;
+			else
+				receive[7] = 1;
+
+			if(receive[8])
+				receive[8] = 0;
+			else
+				receive[8] = 1;
+
+			if(receive[9])
+				receive[9] = 0;
+			else
+				receive[9] = 1;
+
+			if(receive[10])
+				receive[10] = 0;
+			else
+				receive[10] = 1;
+
+			totalA = 2048 - (1 + receive[0] + 2*receive[1] + 4*receive[2] + 8*receive[3]
+			         + 16*receive[4] + 32*receive[5] + 64*receive[6] + 128*receive[7]
+			         + 1*(256*receive[8] + 512*receive[9] + 1024*receive[10]));
+
+			values[f + k*MEM_BUFFER_SIZE] = totalA & 0b00000000000000000000111111111111;
+		}
+
+		// calculate decimal value if number is positive
+		if(receive[23] == 0){
+
+			totalB = 2048 + (receive[12] + 2*receive[13] + 4*receive[14] + 8*receive[15]
+			         + 16*receive[16] + 32*receive[17] + 64*receive[18] + 128*receive[19]
+			         + 1*(256*receive[20] + 512*receive[21] + 1024*receive[22]));
+
+			values2[f + k*MEM_BUFFER_SIZE] = totalB & 0b00000000000000000000111111111111;
+		}
+		// calculate decimal value if number is negative
+		else{
+
+			// first negate all bits
+			if(receive[12])
+				receive[12] = 0;
+			else
+				receive[12] = 1;
+
+			if(receive[13])
+				receive[13] = 0;
+			else
+				receive[13] = 1;
+
+			if(receive[14])
+				receive[14] = 0;
+			else
+				receive[14] = 1;
+
+			if(receive[15])
+				receive[15] = 0;
+			else
+				receive[15] = 1;
+
+			if(receive[16])
+				receive[16] = 0;
+			else
+				receive[16] = 1;
+
+			if(receive[17])
+				receive[17] = 0;
+			else
+				receive[17] = 1;
+
+			if(receive[18])
+				receive[18] = 0;
+			else
+				receive[18] = 1;
+
+			if(receive[19])
+				receive[19] = 0;
+			else
+				receive[19] = 1;
+
+			if(receive[20])
+				receive[20] = 0;
+			else
+				receive[20] = 1;
+
+			if(receive[21])
+				receive[21] = 0;
+			else
+				receive[21] = 1;
+
+			if(receive[22])
+				receive[22] = 0;
+			else
+				receive[22] = 1;
+
+			totalB = 2048 - (1 + receive[12] + 2*receive[13] + 4*receive[14] + 8*receive[15]
+			         + 16*receive[16] + 32*receive[17] + 64*receive[18] + 128*receive[19]
+			         + 1*(256*receive[20] + 512*receive[21] + 1024*receive[22]));
+
+			values2[f + k*MEM_BUFFER_SIZE] = totalB & 0b00000000000000000000111111111111;
+		}
+
+
+		// determine which trigger mode and source is being used and then start the trigger if the values increment (positive edge)
+		// or decrement (negative edge) over the desired trigger level
+		if(TriggerMode == 0){
+			if(TriggerSource == 1){
+				if(values[f + k*MEM_BUFFER_SIZE-1] <= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel){
+					TriggerStart = 1;
+					Trigger = 1;
+				}
+			}
+			else
+				if(values2[f + k*MEM_BUFFER_SIZE-1] <= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel){
+					TriggerStart = 1;
+					Trigger = 1;
+				}
+		}
+		else if(TriggerMode == 1){
+			if(TriggerSource == 1){
+				if(values[f + k*MEM_BUFFER_SIZE-1] >= *PTriggerLevel && values[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel){
+					TriggerStart = 1;
+					Trigger = 1;
+				}
+			}
+			else
+				if(values2[f + k*MEM_BUFFER_SIZE] >= *PTriggerLevel && values2[f + k*MEM_BUFFER_SIZE] <= *PTriggerLevel){
+					TriggerStart = 1;
+					Trigger = 1;
+				}
+		}
+
+		// Start finding pixel values when trigger found
+		if(TriggerStart == 1){
+			// for normal acquire mode
+			if(CaptureMode == 0){
+				if(begin == 0){
+					begin=1;
+					// find all pixel values before trigger position
+					for(i=0;i<TriggerPosition;i++){
+						if((int32_t) (f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1)) < 0){
+							pixels[i] = values[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1))];
+							pixels2[i] = values2[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1))];
+						}
+						else{
+							pixels[i] = values[f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1)];
+							pixels2[i] = values2[f + k*MEM_BUFFER_SIZE - TriggerPosition + i*(NumSkip+1)];
+						}
+					}
+				}
+				// wait until the desired number of values have been skipped
+				if(j<NumSkip){
+					j++;
+				}
+				else{
+					j=0;
+					// set all pixel values to the values obtained from the ADC
+					if(m < SERIES_LENGTH){
+						pixels[m] = values[f + k*MEM_BUFFER_SIZE];
+						pixels2[m] = values2[f + k*MEM_BUFFER_SIZE];
+						m++;
+					}
+					// update measurements and restart trigger if all pixel values have been found
+					else{
+						UpdateMeasurements();
+						m = 0;
+						begin = 0;
+						TriggerStart = 0;
+					}
+				}
+			}
+			// for averaging mode
+			else if(CaptureMode == 1){
+				if(begin == 0){
+					begin=1;
+					if(j<NumAvg){
+						// find all pixel values before trigger position
+						for(i=0;i<TriggerPosition;i++){
+							if((int32_t) (f + k*MEM_BUFFER_SIZE - TriggerPosition) < 0){
+								totalsA[i] = totalsA[i] + values[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i)];
+								totalsB[i] = totalsB[i] + values2[MaxSize - (f + k*MEM_BUFFER_SIZE - TriggerPosition + i)];
+							}
+							else{
+								totalsA[i] = totalsA[i] + values[f + k*MEM_BUFFER_SIZE - TriggerPosition + i];
+								totalsB[i] = totalsB[i] + values2[f + k*MEM_BUFFER_SIZE - TriggerPosition + i];
+							}
+						}
+					}
+				}
+				// keep summing up each pixel value until the number of sets have been gone through
+				if(j<NumAvg){
+					if(m < SERIES_LENGTH){
+						totalsA[m] = totalsA[m]+ values[f + k*MEM_BUFFER_SIZE];
+						totalsB[m] = totalsB[m]+ values2[f + k*MEM_BUFFER_SIZE];
+						m++;
+					}
+					else{
+						j++;
+						m=0;
+						begin = 0;
+						TriggerStart = 0;
+					}
+				}
+				// determine averaged pixel values and then reset trigger and sums
+				else{
+					j = 0;
+					for(i=0;i<TriggerPosition;i++){
+						totalsA[i] = totalsA[i]/2;
+						totalsB[i] = totalsB[i]/2;
+					}
+					for(i=0;i<SERIES_LENGTH;i++){
+						pixels[i] = totalsA[i]/NumAvg;
+						pixels2[i] = totalsB[i]/NumAvg;
+					}
+					for(i=0;i<SERIES_LENGTH;i++){
+						totalsA[i] = 0;
+						totalsB[i] = 0;
+					}
+					UpdateMeasurements();
+					m = 0;
+					begin = 0;
+					TriggerStart = 0;
+				}
+			}
+		}
+	}
+	if(Trigger == 1){
+		GoThrough = 0;
+		Trigger = 0;
+	}
+	// increment Gothrough if a trigger wasn't found in this iteration
+	else
+		GoThrough++;
+
+	if(GoThrough > 200){
+		GoThrough = 20;
+	}
+
+	// when enough iterations have passed, provide a trigger so the signal can be seen
+	if(GoThrough >= 10){
+		TriggerStart = 1;
+		UpdateMeasurements();
+	}
+
+
+// keep going further in the values array as long as the Maximum Size won't be reached in the next iteration
+if(k*MEM_BUFFER_SIZE + MEM_BUFFER_SIZE < MaxSize)
+	k++;
+
+else
+	k = 0;
 }
 
 void ClrScreen() {
@@ -2397,18 +2120,18 @@ double ASCtoDouble(char t[]){
 //////////////////////////////////////////////////
 void EPIIntHandler(void) {
 
-	//
-	// Check for the primary control structure to indicate complete.
-	//
-	ui32Mode = EPIIntStatus(EPI0_BASE, true);
+	// Check EPI interrupt status and clear interrupt
+	EPIMode = EPIIntStatus(EPI0_BASE, true);
 	uDMAIntClear(UDMA_CHANNEL_SW);
 	EPIIntErrorClear(EPI0_BASE, EPI_INT_ERR_DMARDIC);
-	if (ui32Mode == EPI_INT_DMA_RX_DONE) {
+	if (EPIMode == EPI_INT_DMA_RX_DONE) {
 
+		// determine if primary or alternate transfer is complete
 		pri = pui8ControlTable[488] & 0b11;
 		alt = pui8ControlTable[1000] & 0b11;
 
 		if (pri == 0) {
+			// reset primary transfer
 			transfer_done[0] = 1;
 			uDMAChannelTransferSet(UDMA_CHANNEL_SW | UDMA_PRI_SELECT,
 			UDMA_MODE_PINGPONG, EPISource, g_ui32DstBuf[0],
@@ -2421,6 +2144,7 @@ void EPIIntHandler(void) {
 		}
 
 		if (alt == 0) {
+			// reset alternate transfer
 			transfer_done[1] = 1;
 			uDMAChannelTransferSet(UDMA_CHANNEL_SW | UDMA_ALT_SELECT,
 			UDMA_MODE_PINGPONG, EPISource, g_ui32DstBuf2[0],
@@ -2436,13 +2160,8 @@ void EPIIntHandler(void) {
 
 }
 
-//*****************************************************************************
-//
-// Initializes the uDMA software channel to perform a memory to memory uDMA
-// transfer.
-//
-//*****************************************************************************
-void InitSWTransfer(void) {
+// Sets up DMA to work with EPI
+void SetupDMA(void) {
 
 	//
 	// Enable interrupts from the uDMA channel.
@@ -2489,6 +2208,7 @@ void InitSWTransfer(void) {
 // Main program//////////////////////////////////////////////////////////////////////////////
 void setup(void) {
 
+	// point the destination buffer to the correct input arrays
 	for (f = 0; f < MEM_BUFFER_SIZE; f++) {
 		g_ui32DstBuf[f] = &inputs[f];
 	}
@@ -2497,6 +2217,7 @@ void setup(void) {
 		g_ui32DstBuf2[f] = &inputs2[f];
 	}
 
+	// intialzie a value of midlevels
 	midlevel1 = 2048/pixel_divider1 + level1;
 	midlevel2 = 2048/pixel_divider2 + level2;
 
@@ -2592,9 +2313,10 @@ void setup(void) {
 	// Map Channel perhiperhal for 30
 	uDMAChannelAssign(UDMA_CH30_EPI0RX);
 
+	// Point EPISource to FIFOs of EPI
 	EPISource = EPI0_BASE + EPI_O_READFIFO0;
 
-	InitSWTransfer();
+	SetupDMA();
 
 	uint32_t ui32Period;
 
@@ -2707,7 +2429,7 @@ void setup(void) {
 	GPIOPinConfigure(GPIO_PF1_M0PWM1);
 	GPIOPinTypePWM(GPIO_PORTF_BASE, FADC_CLK_OUT);
 
-	// Set Timer A to have a period of one tenth the clock freq
+	// Set Timer A to have a period of one third the clock freq
 	ui32Period = ui32SysClkFreq / 2;
 	TimerLoadSet(TIMER0_BASE, TIMER_A, 2*(ui32Period)/3 - 1);
 
@@ -2749,21 +2471,6 @@ void setup(void) {
 	EPIFIFOConfig(EPI0_BASE, EPI_FIFO_CONFIG_RX_1_2);
 	EPIIntEnable(EPI0_BASE, EPI_INT_DMA_RX_DONE); //| EPI_INT_RXREQ );
 	IntEnable(INT_EPI0);
-
-}
-
-void Timer0IntHandler(void) {
-	// Clear the timer interrupt
-	TimerIntClear(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
-
-	// Issue paint request to the widgets.
-
-	//WidgetPaint((tWidget *)&g_sWaveform);
-
-	//
-	// Process any messages in the widget message queue.
-	//
-	//WidgetMessageQueueProcess();
 
 }
 
@@ -3391,20 +3098,23 @@ void SetupTimeDivision(uint8_t Scale){
 	}
 }
 
+
+// function that helps setup the trigger variables
 void SetupTrigger(uint16_t Level, uint8_t Start_Position, uint8_t Mode, uint8_t Source){
 
 	TriggerLevel = Level;
 	TriggerMode = Mode; // 0 - positive edge, 1 - negative edge
 	TriggerSource = Source;
 	TriggerPosition = Start_Position;
-	above = 0;
-	below = 0;
 	Trigger = 0;
 	TriggerStart = 0;
 	GoThrough = 0;
 }
 
+
+// function to update the voltage and frequency measurements
 void UpdateMeasurements(void){
+	// give inital values to all variables
 	Amp1[1] = 0;
 	Amp1[0] = 4097;
 	Amp2[1] = 0;
@@ -3420,6 +3130,7 @@ void UpdateMeasurements(void){
 	l1 = 0;
 	l2 = 0;
 	for(i=0;i<SERIES_LENGTH;i++){
+		// determine if a min or max has been found
 		if(pixels[i] < Amp1[0]){
 			Amp1[0] = pixels[i];
 		}
@@ -3432,6 +3143,7 @@ void UpdateMeasurements(void){
 		if(pixels2[i] > Amp2[1]){
 			Amp2[1] = pixels2[i];
 		}
+		// determine amount of delta time instances occur between positive triggered events
 		if(TriggerMode == 0 && i > 0){
 			if(pixels[i-1] <= freqref1 && pixels[i] >= freqref1 && freqstart1 == 0){
 				freqstart1 = 1;
@@ -3460,6 +3172,7 @@ void UpdateMeasurements(void){
 			}
 
 		}
+		// determine amount of delta time instances occur between negative triggered events
 		else if(TriggerMode == 1 && i > 0){
 			if(pixels[i-1] >= freqref1 && pixels[i] <= freqref1 && freqstart1 == 0){
 				freqstart1 = 1;
@@ -3488,10 +3201,12 @@ void UpdateMeasurements(void){
 			}
 		}
 	}
+	// initialze totals and number of nonzero delta times found
 	totalt1 = 0;
 	totalt2 = 0;
 	NumAvgt1 = 0;
 	NumAvgt2 = 0;
+	// determine the aomount of nonzero delta times found and add to total
 	for(i=0;i<TimeAvg;i++){
 		if(t1[i] != 0){
 			totalt1 = totalt1 + t1[i];
@@ -3502,12 +3217,15 @@ void UpdateMeasurements(void){
 			NumAvgt2++;
 		}
 	}
+	// determine the average number of delta times
 	t1Avg = totalt1/NumAvgt1;
 	t2Avg = totalt2/NumAvgt2;
+	// reinitilze totals and number of nonzero delta times found
 	totalt1 = 0;
 	totalt2 = 0;
 	NumAvgt1 = 0;
 	NumAvgt2 = 0;
+	// determine the amount of delta times that were within +- 50% of the previous average and add to total
 	for(i=0;i<TimeAvg;i++){
 		if(t1[i] != 0 && t1[i] > t1Avg*0.5 && t1[i] < t1Avg*1.5){
 			totalt1 = totalt1 + t1[i];
@@ -3518,8 +3236,10 @@ void UpdateMeasurements(void){
 			NumAvgt2++;
 		}
 	}
+	// determine the new average number of delta times
 	t1Avg = totalt1/NumAvgt1;
 	t2Avg = totalt2/NumAvgt2;
+	// update the measured frequency if the average number of delta times is nonzero
 	if(t1Avg != 0){
 		Freq1[measnum] = 1000/(t1Avg*secpixel[Time]);
 	}
@@ -3527,15 +3247,20 @@ void UpdateMeasurements(void){
 		Freq2[measnum] = 1000/(t2Avg*secpixel[Time]);
 	}
 
+	// Calcualte peak to peak amplitude in pixels
 	Amp1[2] = Amp1[1] - Amp1[0];
 	Amp2[2] = Amp2[1] - Amp2[0];
 
+	// Calculate peak to peak amplutide in mV
 	Amp1[3] = (Amp1[2]/pixel_divider1)*mvpixel[Mag1];
 	Amp2[3] = (Amp2[2]/pixel_divider2)*mvpixel[Mag2];
 
+	// increment number of measurements found
 	measnum++;
+	// calculate frequency to be displayed when the desired number of measurements has been found
 	if(measnum == MeasureAvg){
 		measnum = 0;
+		// average all the frequency values found
 		for(i=0;i<MeasureAvg;i++){
 			if(Freq1[i] != 0){
 				Frequency1Total = Frequency1Total + Freq1[i];
@@ -3558,58 +3283,59 @@ void UpdateMeasurements(void){
 			Freq2[i] = 0;
 		}
 
+		// display frequency value using ASCII characters if channel 1 is on
 		if(Ch1on == 1){
 			if(Frequency1 > 1000000000){
 				FreqDisplay1[0] = (Frequency1/1000000000)%10 + 48;
-				FreqDisplay1[1] = 46;
+				FreqDisplay1[1] = 46; // '.'
 				FreqDisplay1[2] = (Frequency1/1000000000)%10 + 48;
 				FreqDisplay1[3] = (Frequency1/100000000)%10 + 48;
-				FreqDisplay1[4] = 32;
-				FreqDisplay1[5] = 77;
-				FreqDisplay1[6] = 72;
-				FreqDisplay1[7] = 122;
+				FreqDisplay1[4] = 32; // ' '
+				FreqDisplay1[5] = 77; // 'M'
+				FreqDisplay1[6] = 72; // 'H'
+				FreqDisplay1[7] = 122; // 'z'
 				FreqDisplay1[8] = 0;
 			}
 			else if(Frequency1 > 100000000){
 				FreqDisplay1[0] = (Frequency1/100000000)%10 + 48;
 				FreqDisplay1[1] = (Frequency1/10000000)%10 + 48;
 				FreqDisplay1[2] = (Frequency1/1000000)%10 + 48;
-				FreqDisplay1[3] = 32;
-				FreqDisplay1[4] = 107;
-				FreqDisplay1[5] = 72;
-				FreqDisplay1[6] = 122;
+				FreqDisplay1[3] = 32; // ' '
+				FreqDisplay1[4] = 107; // 'k'
+				FreqDisplay1[5] = 72; // 'H'
+				FreqDisplay1[6] = 122; // 'z'
 				FreqDisplay1[7] = 0;
 				FreqDisplay1[8] = 0;
 			}
 			else if(Frequency1 > 10000000){
 				FreqDisplay1[0] = (Frequency1/10000000)%10 + 48;
 				FreqDisplay1[1] = (Frequency1/1000000)%10 + 48;
-				FreqDisplay1[2] = 46;
+				FreqDisplay1[2] = 46; // '.'
 				FreqDisplay1[3] = (Frequency1/100000)%10 + 48;
-				FreqDisplay1[4] = 32;
-				FreqDisplay1[5] = 107;
-				FreqDisplay1[6] = 72;
-				FreqDisplay1[7] = 122;
+				FreqDisplay1[4] = 32; // ' ';
+				FreqDisplay1[5] = 107; // 'k'
+				FreqDisplay1[6] = 72; // 'H'
+				FreqDisplay1[7] = 122; // 'z'
 				FreqDisplay1[8] = 0;
 			}
 			else if(Frequency1 > 1000000){
 				FreqDisplay1[0] = (Frequency1/1000000)%10 + 48;
-				FreqDisplay1[1] = 46;
+				FreqDisplay1[1] = 46; // '.'
 				FreqDisplay1[2] = (Frequency1/100000)%10 + 48;
 				FreqDisplay1[3] = (Frequency1/10000)%10 + 48;
-				FreqDisplay1[4] = 32;
-				FreqDisplay1[5] = 107;
-				FreqDisplay1[6] = 72;
-				FreqDisplay1[7] = 122;
+				FreqDisplay1[4] = 32; // ' ';
+				FreqDisplay1[5] = 107; // 'k'
+				FreqDisplay1[6] = 72; // 'H'
+				FreqDisplay1[7] = 122; // 'z'
 				FreqDisplay1[8] = 0;
 			}
 			else if(Frequency1 > 100000){
 				FreqDisplay1[0] = (Frequency1/100000)%10 + 48;
 				FreqDisplay1[1] = (Frequency1/10000)%10 + 48;
 				FreqDisplay1[2] = (Frequency1/1000)%10 + 48;
-				FreqDisplay1[3] = 32;
-				FreqDisplay1[4] = 72;
-				FreqDisplay1[5] = 122;
+				FreqDisplay1[3] = 32; // ' ';
+				FreqDisplay1[4] = 72; // 'H'
+				FreqDisplay1[5] = 122; // 'z'
 				FreqDisplay1[6] = 0;
 				FreqDisplay1[7] = 0;
 				FreqDisplay1[8] = 0;
@@ -3617,22 +3343,22 @@ void UpdateMeasurements(void){
 			else if(Frequency1 > 10000){
 				FreqDisplay1[0] = (Frequency1/10000)%10 + 48;
 				FreqDisplay1[1] = (Frequency1/1000)%10 + 48;
-				FreqDisplay1[2] = 46;
+				FreqDisplay1[2] = 46; // '.'
 				FreqDisplay1[3] = (Frequency1/100)%10 + 48;
-				FreqDisplay1[4] = 32;
-				FreqDisplay1[5] = 72;
-				FreqDisplay1[6] = 122;
+				FreqDisplay1[4] = 32; // ' ';
+				FreqDisplay1[5] = 72; // 'H'
+				FreqDisplay1[6] = 122; // 'z'
 				FreqDisplay1[7] = 0;
 				FreqDisplay1[8] = 0;
 			}
 			else if(Frequency1 > 1000){
 				FreqDisplay1[0] = (Frequency1/1000)%10 + 48;
-				FreqDisplay1[1] = 46;
+				FreqDisplay1[1] = 46; // '.'
 				FreqDisplay1[2] = (Frequency1/100)%10 + 48;
 				FreqDisplay1[3] = (Frequency1/10)%10 + 48;
-				FreqDisplay1[4] = 32;
-				FreqDisplay1[5] = 72;
-				FreqDisplay1[6] = 122;
+				FreqDisplay1[4] = 32; // ' ';
+				FreqDisplay1[5] = 72; // 'H'
+				FreqDisplay1[6] = 122; // 'z'
 				FreqDisplay1[7] = 0;
 				FreqDisplay1[8] = 0;
 			}
@@ -3640,78 +3366,81 @@ void UpdateMeasurements(void){
 				FreqDisplay1[0] = (Frequency1/100)%10 + 48;
 				FreqDisplay1[1] = (Frequency1/10)%10 + 48;
 				FreqDisplay1[2] = Frequency1%10 + 48;
-				FreqDisplay1[3] = 32;
-				FreqDisplay1[4] = 109;;
-				FreqDisplay1[5] = 72;
-				FreqDisplay1[6] = 122;
+				FreqDisplay1[3] = 32; // ' ';
+				FreqDisplay1[4] = 109; // 'm'
+				FreqDisplay1[5] = 72; // 'H'
+				FreqDisplay1[6] = 122; // 'z'
 				FreqDisplay1[7] = 0;
 				FreqDisplay1[8] = 0;
+				// create space if leading digit is 0
 				if(FreqDisplay1[0] == 48){
-					FreqDisplay1[0] = 32;
+					FreqDisplay1[0] = 32; // ' ';
 					if(FreqDisplay1[1] == 48){
-						FreqDisplay1[1] = 32;
+						FreqDisplay1[1] = 32; // ' ';
 					}
 				}
 			}
 		}
+		// display 'Hz' if channel 1 not on
 		else{
-			FreqDisplay1[0] = 72;
-			FreqDisplay1[1] = 122;
+			FreqDisplay1[0] = 72; // 'H'
+			FreqDisplay1[1] = 122; // 'z'
 			FreqDisplay1[2] = 0;
 		}
 
+		// display frequency value using ASCII characters if channel 2 is on
 		if(Ch2on == 1){
 			if(Frequency2 > 1000000000){
 				FreqDisplay2[0] = (Frequency2/1000000000)%10 + 48;
-				FreqDisplay2[1] = 46;
+				FreqDisplay2[1] = 46; // '.'
 				FreqDisplay2[2] = (Frequency2/1000000000)%10 + 48;
 				FreqDisplay2[3] = (Frequency2/100000000)%10 + 48;
-				FreqDisplay2[4] = 32;
-				FreqDisplay2[5] = 77;
-				FreqDisplay2[6] = 72;
-				FreqDisplay2[7] = 122;
+				FreqDisplay2[4] = 32; // ' ';
+				FreqDisplay2[5] = 77; // 'M';
+				FreqDisplay2[6] = 72; // 'H'
+				FreqDisplay2[7] = 122; // 'z'
 				FreqDisplay2[8] = 0;
 			}
 			else if(Frequency2 > 100000000){
 				FreqDisplay2[0] = (Frequency2/100000000)%10 + 48;
 				FreqDisplay2[1] = (Frequency2/10000000)%10 + 48;
 				FreqDisplay2[2] = (Frequency2/1000000)%10 + 48;
-				FreqDisplay2[3] = 32;
-				FreqDisplay2[4] = 107;
-				FreqDisplay2[5] = 72;
-				FreqDisplay2[6] = 122;
+				FreqDisplay2[3] = 32; // ' ';
+				FreqDisplay2[4] = 107; // 'k'
+				FreqDisplay2[5] = 72; // 'H'
+				FreqDisplay2[6] = 122; // 'z'
 				FreqDisplay2[7] = 0;
 				FreqDisplay2[8] = 0;
 			}
 			else if(Frequency2 > 10000000){
 				FreqDisplay2[0] = (Frequency2/10000000)%10 + 48;
 				FreqDisplay2[1] = (Frequency2/1000000)%10 + 48;
-				FreqDisplay2[2] = 46;
+				FreqDisplay2[2] = 46; // '.'
 				FreqDisplay2[3] = (Frequency2/100000)%10 + 48;
-				FreqDisplay2[4] = 32;
-				FreqDisplay2[5] = 107;
-				FreqDisplay2[6] = 72;
-				FreqDisplay2[7] = 122;
+				FreqDisplay2[4] = 32; // ' ';
+				FreqDisplay2[5] = 107; // 'k'
+				FreqDisplay2[6] = 72; // 'H'
+				FreqDisplay2[7] = 122; // 'z'
 				FreqDisplay2[8] = 0;
 			}
 			else if(Frequency2 > 1000000){
 				FreqDisplay2[0] = (Frequency2/1000000)%10 + 48;
-				FreqDisplay2[1] = 46;
+				FreqDisplay2[1] = 46; // '.'
 				FreqDisplay2[2] = (Frequency2/100000)%10 + 48;
 				FreqDisplay2[3] = (Frequency2/10000)%10 + 48;
-				FreqDisplay2[4] = 32;
-				FreqDisplay2[5] = 107;
-				FreqDisplay2[6] = 72;
-				FreqDisplay2[7] = 122;
+				FreqDisplay2[4] = 32; // ' ';
+				FreqDisplay2[5] = 107; // 'k'
+				FreqDisplay2[6] = 72; // 'H'
+				FreqDisplay2[7] = 122; // 'z'
 				FreqDisplay2[8] = 0;
 			}
 			else if(Frequency2 > 100000){
 				FreqDisplay2[0] = (Frequency2/100000)%10 + 48;
 				FreqDisplay2[1] = (Frequency2/10000)%10 + 48;
 				FreqDisplay2[2] = (Frequency2/1000)%10 + 48;
-				FreqDisplay2[3] = 32;
-				FreqDisplay2[4] = 72;
-				FreqDisplay2[5] = 122;
+				FreqDisplay2[3] = 32; // ' ';
+				FreqDisplay2[4] = 72; // 'H'
+				FreqDisplay2[5] = 122; // 'z'
 				FreqDisplay2[6] = 0;
 				FreqDisplay2[7] = 0;
 				FreqDisplay2[8] = 0;
@@ -3719,22 +3448,22 @@ void UpdateMeasurements(void){
 			else if(Frequency2 > 10000){
 				FreqDisplay2[0] = (Frequency2/10000)%10 + 48;
 				FreqDisplay2[1] = (Frequency2/1000)%10 + 48;
-				FreqDisplay2[2] = 46;
+				FreqDisplay2[2] = 46; // '.'
 				FreqDisplay2[3] = (Frequency2/100)%10 + 48;
-				FreqDisplay2[4] = 32;
-				FreqDisplay2[5] = 72;
-				FreqDisplay2[6] = 122;
+				FreqDisplay2[4] = 32; // ' ';
+				FreqDisplay2[5] = 72; // 'H'
+				FreqDisplay2[6] = 122; // 'z'
 				FreqDisplay2[7] = 0;
 				FreqDisplay2[8] = 0;
 			}
 			else if(Frequency2 > 1000){
 				FreqDisplay2[0] = (Frequency2/1000)%10 + 48;
-				FreqDisplay2[1] = 46;
+				FreqDisplay2[1] = 46; // '.'
 				FreqDisplay2[2] = (Frequency2/100)%10 + 48;
 				FreqDisplay2[3] = (Frequency2/10)%10 + 48;
-				FreqDisplay2[4] = 32;
-				FreqDisplay2[5] = 72;
-				FreqDisplay2[6] = 122;
+				FreqDisplay2[4] = 32; // ' ';
+				FreqDisplay2[5] = 72; // 'H'
+				FreqDisplay2[6] = 122; // 'z'
 				FreqDisplay2[7] = 0;
 				FreqDisplay2[8] = 0;
 			}
@@ -3742,23 +3471,25 @@ void UpdateMeasurements(void){
 				FreqDisplay2[0] = (Frequency2/100)%10 + 48;
 				FreqDisplay2[1] = (Frequency2/10)%10 + 48;
 				FreqDisplay2[2] = Frequency2%10 + 48;
-				FreqDisplay2[3] = 32;
-				FreqDisplay2[4] = 109;
-				FreqDisplay2[5] = 72;
-				FreqDisplay2[6] = 122;
+				FreqDisplay2[3] = 32; // ' ';
+				FreqDisplay2[4] = 109; // 'm'
+				FreqDisplay2[5] = 72; // 'H'
+				FreqDisplay2[6] = 122; // 'z'
 				FreqDisplay2[7] = 0;
 				FreqDisplay2[8] = 0;
+				// create space if leading with 0
 				if(FreqDisplay2[0] == 48){
-					FreqDisplay2[0] = 32;
+					FreqDisplay2[0] = 32; // ' ';
 					if(FreqDisplay2[1] == 48){
-						FreqDisplay2[1] = 32;
+						FreqDisplay2[1] = 32; // ' ';
 					}
 				}
 			}
 		}
+		// display 'Hz' if channel 2 not on
 		else{
-			FreqDisplay2[0] = 72;
-			FreqDisplay2[1] = 122;
+			FreqDisplay2[0] = 72; // 'H'
+			FreqDisplay2[1] = 122; // 'z'
 			FreqDisplay2[2] = 0;
 		}
 
@@ -3766,76 +3497,84 @@ void UpdateMeasurements(void){
 		PushButtonTextSet(&g_psBotButtons[1], FreqDisplay2);
 	}
 
+	// display voltage measurement for channel 1 with ASCII characters
 	if(Ch1on == 1){
 		if(Amp1[3] < 1000){
 			MagDisplay1[0] = (Amp1[3]/100)%10 + 48;
 			MagDisplay1[1] = (Amp1[3]/10)%10 + 48;
 			MagDisplay1[2] = Amp1[3]%10 + 48;
-			MagDisplay1[3] = 32;
-			MagDisplay1[4] = 109;
-			MagDisplay1[5] = 86;
+			MagDisplay1[3] = 32; // ' ';
+			MagDisplay1[4] = 109; // 'm'
+			MagDisplay1[5] = 86; // 'V'
 			MagDisplay1[6] = 0;
+			// create spaces for leading 0
 			if(MagDisplay1[0] == 48){
-				MagDisplay1[0] = 32;
+				MagDisplay1[0] = 32; // ' ';
 				if(MagDisplay1[1] == 48){
-					MagDisplay1[1] = 32;
+					MagDisplay1[1] = 32; // ' ';
 				}
 			}
 		}
 		else{
 			MagDisplay1[0] = (Amp1[3]/10000)%10 + 48;
 			MagDisplay1[1] = (Amp1[3]/1000)%10 + 48;
-			MagDisplay1[2] = 46;
+			MagDisplay1[2] = 46; // '.'
 			MagDisplay1[3] = (Amp1[3]/100)%10 + 48;
 			MagDisplay1[4] = (Amp1[3]/10)%10 + 48;
-			MagDisplay1[5] = 32;
-			MagDisplay1[6] = 86;
+			MagDisplay1[5] = 32; // ' ';
+			MagDisplay1[6] = 86; // 'V'
+			// create spaces for leading 0
 			if(MagDisplay1[0] == 48){
-				MagDisplay1[0] = 32;
+				MagDisplay1[0] = 32; // ' ';
 				if(MagDisplay1[1] == 48){
-					MagDisplay1[1] = 32;
+					MagDisplay1[1] = 32; // ' ';
 				}
 			}
 		}
 	}
+	// display 'V' if channel 1 not on
 	else{
-		MagDisplay1[0] = 86;
+		MagDisplay1[0] = 86; // 'V'
 		MagDisplay1[1] = 0;
 	}
+	// display voltage measurement for channel 2 with ASCII characters
 	if(Ch2on == 1){
 		if(Amp2[3] < 1000){
 			MagDisplay2[0] = (Amp2[3]/100)%10 + 48;
 			MagDisplay2[1] = (Amp2[3]/10)%10 + 48;
 			MagDisplay2[2] = Amp2[3]%10 + 48;
-			MagDisplay2[3] = 32;
-			MagDisplay2[4] = 109;
-			MagDisplay2[5] = 86;
+			MagDisplay2[3] = 32; // ' ';
+			MagDisplay2[4] = 109; // 'm'
+			MagDisplay2[5] = 86; // 'V'
 			MagDisplay2[6] = 0;
+			// create spaces of leading 0
 			if(MagDisplay2[0] == 48){
-				MagDisplay2[0] = 32;
+				MagDisplay2[0] = 32; // ' ';
 				if(MagDisplay2[1] == 48){
-					MagDisplay2[1] = 32;
+					MagDisplay2[1] = 32; // ' ';
 				}
 			}
 		}
 		else{
 			MagDisplay2[0] = (Amp2[3]/10000)%10 + 48;
 			MagDisplay2[1] = (Amp2[3]/1000)%10 + 48;
-			MagDisplay2[2] = 46;
+			MagDisplay2[2] = 46; // '.'
 			MagDisplay2[3] = (Amp2[3]/100)%10 + 48;
 			MagDisplay2[4] = (Amp2[3]/10)%10 + 48;
-			MagDisplay2[5] = 32;
-			MagDisplay2[6] = 86;
+			MagDisplay2[5] = 32; // ' ';
+			MagDisplay2[6] = 86; // 'V'
+			// create spaces for leading 0
 			if(MagDisplay2[0] == 48){
-				MagDisplay2[0] = 32;
+				MagDisplay2[0] = 32; // ' ';
 				if(MagDisplay2[1] == 48){
-					MagDisplay2[1] = 32;
+					MagDisplay2[1] = 32; // ' ';
 				}
 			}
 		}
 	}
+	// display 'V' if channel 2 not on
 	else{
-		MagDisplay2[0] = 86;
+		MagDisplay2[0] = 86; // 'V'
 		MagDisplay2[1] = 0;
 	}
 	PushButtonTextSet(&g_psBotButtons[2], MagDisplay1);
@@ -3846,6 +3585,7 @@ void CalibrateOffset(){
 	uint32_t CalibrateTotal1 = 0, CalibrateTotal2 = 0;
 	uint16_t CalibrateAvg1 = 0, CalibrateAvg2 = 0;
 
+	// determine average value of pixels
 	for(i=0;i<SERIES_LENGTH;i++){
 		CalibrateTotal1 = CalibrateTotal1 + pixels[i];
 		CalibrateTotal2 = CalibrateTotal2 + pixels2[i];
@@ -3854,6 +3594,8 @@ void CalibrateOffset(){
 	CalibrateAvg1 = CalibrateTotal1/SERIES_LENGTH;
 	CalibrateAvg2 = CalibrateTotal2/SERIES_LENGTH;
 
+	// compensate midlevel for channels 1 and 2 based on average value of pixels so that the
+	// average and midlevel are equal
 	level1 = CalibrateAvg1/pixel_divider1 - 2048/pixel_divider1 + desiredlevel1;
 	level2 = CalibrateAvg2/pixel_divider2 - 2048/pixel_divider2 + desiredlevel2;
 	midlevel1 = 2048/pixel_divider1 + level1;
