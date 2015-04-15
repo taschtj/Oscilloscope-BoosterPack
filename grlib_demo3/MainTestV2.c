@@ -163,9 +163,9 @@ float mvpixel[14], secpixel[29];
 char MagDisplay1[7], MagDisplay2[7];
 char FreqDisplay1[9], FreqDisplay2[9];
 
-extern const uint8_t g_pui8Image[];
-extern const uint8_t g_pui9Image[];
 
+
+//Define Widgets
 tContext sContext;
 tRectangle sRect;
 extern tCanvasWidget g_sBackground;
@@ -195,16 +195,20 @@ extern tSliderWidget g_sTriggerSliderVertical;
 extern tSliderWidget g_sTriggerSliderHorizontal;
 extern tSliderWidget g_sC1Slider;
 extern tSliderWidget g_sC2Slider;
-//for grid
+
+//Used for grid
 int x;
 int y;
+///////////////
 
+//Used for scale display//////
 char *tempMagVolDivC2;
 char magVolDivC2[] = { 32, 50, 48, 109, 86, 47, 100, 105, 118, 0 };
 char *tempMagVolDivC1;
 char magVolDivC1[] = { 32, 50, 48, 109, 86, 47, 100, 105, 118, 0 };
 char *tempTimVolDivC1;
 char timVolDivC1[] = { 32, 32, 50, 117, 115, 47, 100, 105, 118, 0 };
+//////////////////////////////
 void ClrScreen(void);
 void DRadioAcquire(tWidget *pWidgetR);
 void DRadioChannels(tWidget *pWidgetR);
@@ -242,8 +246,6 @@ void TriggerModeSelect(tWidget *psWidget, uint32_t bSelected);
 void TriggerSourceSelect(tWidget *psWidget, uint32_t bSelected);
 tPushButtonWidget g_psTopButtons[];
 tPushButtonWidget g_psBotButtons[];
-
-
 void setup(void);
 void SetupVoltageDivision(uint8_t Scale, uint8_t Channel);
 void SetupTimeDivision(uint8_t Scale);
@@ -331,7 +333,7 @@ tPushButtonWidget g_psTopButtons[] =
 										g_psFontCm16, "Acquire", 0, 0, 0, 0,
 										DRadioAcquire) };
 ////////////////////////////////////////////////////////////////////////////////////////////
-////Magnitude Division Buttons//////////////////////////////////////////////////////////////////////////
+////Magnitude Division Buttons//////////////////////////////////////////////////////////////
 RectangularButton(g_sPushBtnAddC1, &g_sAddMinusC1, &g_sPushBtnMinusC1, 0,
 		&g_sKentec320x240x16_SSD2119, 1, 30, 50, 18,
 		(PB_STYLE_OUTLINE | PB_STYLE_TEXT_OPAQUE | PB_STYLE_TEXT | PB_STYLE_FILL),
@@ -355,8 +357,8 @@ RectangularButton(g_sPushBtnMinusC2, &g_sAddMinusC2, 0, 0,
 		(PB_STYLE_OUTLINE | PB_STYLE_TEXT_OPAQUE | PB_STYLE_TEXT | PB_STYLE_FILL),
 		ClrGray, ClrWhite, ClrWhite, ClrYellow, g_psFontCm16, "-", 0, 0, 0, 0,
 		MinusMagDivC2);
-//////////////////////////////////////////////////////////////////////////////////////
-///Time Division Buttons ////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////
+///Time Division Buttons ////////////////////////////////////////////////////////////////
 RectangularButton(g_sPushBtnAddTime, &g_sAddMinusTime, &g_sPushBtnMinusTime, 0,
 		&g_sKentec320x240x16_SSD2119, 106, 30, 50, 18,
 		(PB_STYLE_OUTLINE | PB_STYLE_TEXT_OPAQUE | PB_STYLE_TEXT | PB_STYLE_FILL),
@@ -370,7 +372,7 @@ RectangularButton(g_sPushBtnMinusTime, &g_sAddMinusTime, 0, 0,
 		MinusTimeDiv);
 
 
-//////////////Sliders for trigger
+////Sliders for trigger/////////////////////////////////////////////////////////////////
 Slider(g_sTriggerSliderVertical,0, 0, 0, &g_sKentec320x240x16_SSD2119, 310, 29, 10, 183, 29, 211, 29,
                 ( SL_STYLE_BACKG_FILL|SL_STYLE_FILL|SL_STYLE_OUTLINE | SL_STYLE_VERTICAL),
                 ClrWhite, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
@@ -380,7 +382,7 @@ Slider(g_sTriggerSliderHorizontal,0, 0, 0, &g_sKentec320x240x16_SSD2119, 0, 202,
                 ClrWhite, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
                 &g_sFontCm20, 0, 0, 0, OnSliderChangeHorizontal);
 
-//////////////Sliders for channel 1 and 2
+////Sliders for channel 1 and 2 ////////////////////////////////////////////////////////
 Slider(g_sC1Slider,0, 0, 0, &g_sKentec320x240x16_SSD2119, 300, 29, 20, 183, 29, 211, 29,
                 ( SL_STYLE_BACKG_FILL|SL_STYLE_FILL|SL_STYLE_OUTLINE | SL_STYLE_VERTICAL),
                 ClrWhite, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
@@ -392,7 +394,7 @@ Slider(g_sC2Slider,0, 0, 0, &g_sKentec320x240x16_SSD2119, 0, 29, 20, 183, 29, 21
 
 
 ///////////////////////////////////////////////////////////////////////////
-///Bottom Buttons///////////////////////////////////////////////////////
+///Bottom Buttons//////////////////////////////////////////////////////////
 tPushButtonWidget g_psBotButtons[] =
 		{
 								RectangularButtonStruct(&g_sBottom,
@@ -438,7 +440,7 @@ tPushButtonWidget g_psBotButtons[] =
 										ClrGray, ClrWhite, ClrWhite, ClrWhite,
 										g_psFontCmss14, "Run/Stop", 0, 0, 0, 0,
 										RunStop) };
-//Radio Buttons for the trigger button//////////////////////////////////////////////////////
+//Radio Buttons for the trigger button///////////////////////////////////////
 
 tRadioButtonWidget g_psRadioBtnTriggers[] = {
 RadioButtonStruct(&g_sContainerTriggers, g_psRadioBtnTriggers + 1, 0,
@@ -457,10 +459,6 @@ RadioButtonStruct(&g_sContainerTriggers, 0, 0,
 				10, ClrBlack, ClrWhite, ClrWhite, g_psFontCmss14, "Mode", 0, TriggerSelectRadioBtns)};
 #define NUM_RADIO_BUTTONS_Triggers      (sizeof(g_psRadioBtnTriggers) /   \
                                  sizeof(g_psRadioBtnTriggers[0]))
-
-
-
-
 
 tRadioButtonWidget g_psRadioBtnSource[] = {
 RadioButtonStruct(&g_sContainerTriggerSource, g_psRadioBtnSource + 1, 0,
@@ -495,13 +493,6 @@ Container(g_sContainerTriggerMode, 0, 0, g_psRadioBtnTriggerMode,
 		(CTR_STYLE_OUTLINE |CTR_STYLE_FILL ), ClrBlack, ClrWhite, ClrRed,
 		g_psFontCm14, 0);
 ///////////////////////////////////////////////////////////////
-//RectangularButtonStruct(&g_sTop,
-//		g_psTopButtons + 5, 0,
-//		&g_sKentec320x240x16_SSD2119, 212, 0,
-//		52, 28,
-//		(PB_STYLE_OUTLINE | PB_STYLE_TEXT_OPAQUE | PB_STYLE_TEXT | PB_STYLE_FILL),
-//		ClrGray, ClrWhite, ClrWhite, ClrWhite,
-//		g_psFontCm12, "Channels", 0, 0, 0, 0, 0),
 
 tRadioButtonWidget g_psRadioBtnChannels[] = {
 RadioButtonStruct(&g_sContainerChannels, g_psRadioBtnChannels + 1, 0,
@@ -549,10 +540,6 @@ RadioButtonStruct(&g_sContainerAcquire,  0, 0,
 		AcquireSelectRadioBtns)};
 #define NUM_RADIO_BUTTONS_Acquire      (sizeof(g_psRadioBtnAcquire) /   \
                                  sizeof(g_psRadioBtnAcquire[0]))
-
-
-
-
 
 ////Radio Buttons for Hz and V Pushbuttons////////////////////////////////////
 tRadioButtonWidget g_psRadioBtnFreqMagC1[] = {
@@ -651,12 +638,9 @@ Container(g_sContainerVolMagnitudeC2, 0, 0, g_psRadioBtnVolMagC2,
 		(CTR_STYLE_OUTLINE |CTR_STYLE_FILL ), ClrBlack, ClrWhite, ClrYellow,
 		g_psFontCm14, 0);
 
-
-
-
-
 #define NUM_RADIO1_BUTTONS      (sizeof(g_psRadioBtnVolDiv0) /   \
                                  sizeof(g_psRadioBtnVolDiv0[0]))
+////Add function for magnitude division for channel 1/////////////
 void AddMagDivC1(tWidget *psWidget) {
 
 	if(Mag1 == 10)
@@ -703,6 +687,8 @@ void AddMagDivC1(tWidget *psWidget) {
 	WidgetPaint((tWidget * ) &g_psTopButtons[0]);
 	WidgetPaint((tWidget * ) &g_sAddMinusC1);
 }
+
+////Minus function for magnitude division for channel 1/////////////
 void MinusMagDivC1(tWidget *psWidget) {
 
 	if(Mag1 == 0)
@@ -746,6 +732,8 @@ void MinusMagDivC1(tWidget *psWidget) {
 	WidgetPaint((tWidget * ) &g_psTopButtons[0]);
 	WidgetPaint((tWidget * ) &g_sAddMinusC1);
 }
+
+////Add function for magnitude division for channel 2/////////////
 void AddMagDivC2(tWidget *psWidget) {
 
 	if(Mag2 == 10)
@@ -790,6 +778,8 @@ void AddMagDivC2(tWidget *psWidget) {
 	WidgetPaint((tWidget * ) &g_psTopButtons[1]);
 	WidgetPaint((tWidget * ) &g_sAddMinusC2);
 }
+
+////Minus function for magnitude division for channel 2/////////////
 void MinusMagDivC2(tWidget *psWidget) {
 
 	if(Mag2 == 0)
@@ -834,8 +824,7 @@ void MinusMagDivC2(tWidget *psWidget) {
 	WidgetPaint((tWidget * ) &g_sAddMinusC2);
 }
 
-
-
+////Add function for time division for channel 1 & 2 /////////////
 void AddTimeDiv(tWidget *psWidget) {
 
 	if(Time == 28)
@@ -896,6 +885,8 @@ void AddTimeDiv(tWidget *psWidget) {
 	WidgetPaint((tWidget * ) &g_psTopButtons[2]);
 	WidgetPaint((tWidget * ) &g_sAddMinusTime);
 }
+
+////Minus function for time division for channel 1 & 2 /////////////
 void MinusTimeDiv(tWidget *psWidget) {
 
 	if(Time == 6)
@@ -957,19 +948,6 @@ void MinusTimeDiv(tWidget *psWidget) {
 }
 
 
-
-//void OnRadioChange(tWidget *psWidget, uint32_t bSelected) {
-//	uint32_t ui32Idx;
-//
-//	//
-//	// Find the index of this radio button in the first group.
-//	//
-//	for (ui32Idx = 0; ui32Idx < NUM_RADIO1_BUTTONS; ui32Idx++) {
-//		if (psWidget == (tWidget *) (g_psRadioBtnVolDiv0 + ui32Idx)) {
-//			break;
-//		}
-//	}
-//}
 bool ButtonTF = false;
 void AddMinusFunctionC1(tWidget *pWidget) {
 	ButtonTF = !ButtonTF;
@@ -1047,7 +1025,7 @@ void AddMinusFunctionTime(tWidget *pWidget) {
 	}
 
 }
-
+///Not Using////////////////////////////////////////////
 void DRadioFreMagnitudeC1(tWidget *pWidgetR) {
 	ButtonTF = !ButtonTF;
 	if (ButtonTF) {
@@ -1088,6 +1066,8 @@ void DRadioVolMagnitudeC2(tWidget *pWidgetR) {
 	}
 
 }
+///////////////////////////////////////////////////////////////
+///Display channels select options/////////////////////////////
 void DRadioChannels(tWidget *pWidgetR){
 	ButtonTF = !ButtonTF;
 	if (ButtonTF) {
@@ -1136,7 +1116,7 @@ void MathSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
 	  }
 }
 
-
+///Trigger function//////////////////////////////////////////
 void TriggerSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
 
 	  uint32_t ui32Idx;
@@ -1191,12 +1171,12 @@ void TriggerModeSelect(tWidget *psWidget, uint32_t bSelected){
 		      }
 		  }
 
-////////Pedge
+/////Postive edge////////////
 		  if(ui32Idx==0){
 			  TriggerMode  = 0;
 
 		  }
-////////Nedge
+/////Negative edge///////////
 		  else  if(ui32Idx==1) {
 			  TriggerMode  = 1;
 		  }
@@ -1214,17 +1194,18 @@ void TriggerSourceSelect(tWidget *psWidget, uint32_t bSelected){
 		      }
 		  }
 
-////////Source 1
+/////Source 1/////////////////////////
 		  if(ui32Idx==0){
 			  TriggerSource = 1;
 
 		  }
-////////Source 2
+/////Source 2/////////////////////////
 		  else  if(ui32Idx==1) {
 			  TriggerSource = 2;
 		  }
 }
 
+////Channel select function///////////////////////////////
 void ChannelSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
 	  uint32_t ui32Idx;
 	  for(ui32Idx = 0; ui32Idx < NUM_RADIO_BUTTONS_Channels; ui32Idx++)
@@ -1312,8 +1293,6 @@ void AcquireSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
 
 
 }
-
-
 
 void DWaveForm(tWidget *pWidgetR, tContext *psContext) {
 ///////////////////////////////////////////////////////////////////////
@@ -1535,12 +1514,12 @@ void DWaveForm(tWidget *pWidgetR, tContext *psContext) {
 	GrContextForegroundSet(&sContext, ClrWhite);
 	GrCircleFill(&sContext, 160, 119, 3);
 //////////////////////////////////////////////////////////////////////
-//change this for vertical division
+///Grid for vertical division
 	for (x = 0; x <= 320; x += 4) {
 		for (y = 29; y <= 210; y += 15)
 			GrPixelDraw(&sContext, x, y);
 	}
-//change this for horizontal division
+///Grid for horizontal division
 	for (x = 0; x < 321; x += 40) {
 		for (y = 29; y <= 210; y += 4)
 			GrPixelDraw(&sContext, x, y);
@@ -1677,17 +1656,16 @@ int main(void) {
 	TouchScreenInit(ui32SysClkFreq);
 	TouchScreenCallbackSet(WidgetPointerMessage);
 
-//intro pictures
-/////////////////////////////////////////////
-//	GrImageDraw(&sContext, g_pui8Image, 0, 0);
-//	GrFlush(&sContext);
-//	SysCtlDelay(ui32SysClkFreq);
-//
-//	GrImageDraw(&sContext, g_pui9Image, 0, 0);
-//	GrFlush(&sContext);
-//	SysCtlDelay(ui32SysClkFreq);
-//	ClrScreen();
-//////////////////////////////////////////////
+////Intro pictures//////////////////////////
+	GrImageDraw(&sContext, g_pui8Image, 0, 0);
+	GrFlush(&sContext);
+	SysCtlDelay(ui32SysClkFreq);
+
+	GrImageDraw(&sContext, g_pui9Image, 0, 0);
+	GrFlush(&sContext);
+	SysCtlDelay(ui32SysClkFreq);
+	ClrScreen();
+////////////////////////////////////////////
 	WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sBackground);
 	WidgetAdd(WIDGET_ROOT, (tWidget *) &g_sWaveform);
 	WidgetPaint(WIDGET_ROOT);
@@ -2366,7 +2344,7 @@ void ClrScreen() {
 	GrFlush(&sContext);
 }
 
-//Clean all the widget running and repaint BackGround and Waveform
+//Clean all the running widget and repaint the BackGround and the Waveform
 void ClrMyWidget(){
 	WidgetRemove((tWidget *) &g_sContainerChannels);
 //	WidgetRemove((tWidget *) &g_sC1Slider);
