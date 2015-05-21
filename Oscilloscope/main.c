@@ -1,5 +1,4 @@
 /*
- * MainTestV2.c
  *
  *  Created on: Dec 14, 2014
  *      Author: Ruoyu Zhuang and Thomas Tasch
@@ -385,23 +384,23 @@ RectangularButton(g_sPushBtnMinusTime, &g_sAddMinusTime, 0, 0,
 
 
 ////Sliders for trigger/////////////////////////////////////////////////////////////////
-Slider(g_sTriggerSliderVertical,0, 0, 0, &g_sKentec320x240x16_SSD2119, 310, 29, 10, 183, 29, 211, 29,
+Slider(g_sTriggerSliderVertical,0, 0, 0, &g_sKentec320x240x16_SSD2119, 0, 29, 20, 183, 29, 211, 29,
                 ( SL_STYLE_BACKG_FILL|SL_STYLE_FILL|SL_STYLE_OUTLINE | SL_STYLE_VERTICAL),
                 ClrWhite, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
                 &g_sFontCm20, 0, 0, 0, OnSliderChangeVertical);
-Slider(g_sTriggerSliderHorizontal,0, 0, 0, &g_sKentec320x240x16_SSD2119, 0, 202, 310, 10, 0, 300, 120,
+Slider(g_sTriggerSliderHorizontal,0, 0, 0, &g_sKentec320x240x16_SSD2119, 0, 192, 320, 20, 0,320, 160,
                 ( SL_STYLE_BACKG_FILL|SL_STYLE_FILL|SL_STYLE_OUTLINE),
                 ClrWhite, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
                 &g_sFontCm20, 0, 0, 0, OnSliderChangeHorizontal);
 
 ////Sliders for channel 1 and 2 ////////////////////////////////////////////////////////
-Slider(g_sC1Slider,0, 0, 0, &g_sKentec320x240x16_SSD2119, 300, 29, 20, 183, 29, 211, 29,
+Slider(g_sC1Slider,0, 0, 0, &g_sKentec320x240x16_SSD2119, 0, 29, 20, 183, 29, 211, 120,
                 ( SL_STYLE_BACKG_FILL|SL_STYLE_FILL|SL_STYLE_OUTLINE | SL_STYLE_VERTICAL),
-                ClrWhite, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
+                ClrRed, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
                 &g_sFontCm20, 0, 0, 0, OnSliderChangeC1);
-Slider(g_sC2Slider,0, 0, 0, &g_sKentec320x240x16_SSD2119, 0, 29, 20, 183, 29, 211, 29,
+Slider(g_sC2Slider,0, 0, 0, &g_sKentec320x240x16_SSD2119, 298, 29, 20, 183, 29, 211, 120,
                 ( SL_STYLE_BACKG_FILL|SL_STYLE_FILL|SL_STYLE_OUTLINE|SL_STYLE_VERTICAL),
-                ClrWhite, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
+                ClrYellow, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
                 &g_sFontCm20, 0, 0, 0, OnSliderChangeC2);
 
 
@@ -465,7 +464,7 @@ RadioButtonStruct(&g_sContainerTriggers, g_psRadioBtnTriggers + 2, 0,
 		TriggerSelectRadioBtns),
 RadioButtonStruct(&g_sContainerTriggers, g_psRadioBtnTriggers + 3, 0,
 		&g_sKentec320x240x16_SSD2119, 159, 72, 48, 20, RB_STYLE_TEXT,
-		10, ClrBlack, ClrWhite, ClrWhite, g_psFontCmss14, "Position", 0, TriggerSelectRadioBtns),
+		10, ClrBlack, ClrWhite, ClrWhite, g_psFontCmss12, "Position", 0, TriggerSelectRadioBtns),
 RadioButtonStruct(&g_sContainerTriggers, 0, 0,
 				&g_sKentec320x240x16_SSD2119, 159, 93, 48, 20, RB_STYLE_TEXT,
 				10, ClrBlack, ClrWhite, ClrWhite, g_psFontCmss14, "Mode", 0, TriggerSelectRadioBtns)};
@@ -960,6 +959,8 @@ void MinusTimeDiv(tWidget *psWidget) {
 
 bool ButtonTF = false;
 void AddMinusFunctionC1(tWidget *pWidget) {
+		  WidgetRemove((tWidget *) &g_sC1Slider);
+		  WidgetRemove((tWidget *) &g_sC2Slider);
 	ButtonTF = !ButtonTF;
 	if (ButtonTF) {
 
@@ -1124,6 +1125,8 @@ void MathSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
 
 ///Trigger function//////////////////////////////////////////
 void TriggerSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
+		  WidgetRemove((tWidget *) &g_sC1Slider);
+		  WidgetRemove((tWidget *) &g_sC2Slider);
 
 	  uint32_t ui32Idx;
 	  for(ui32Idx = 0; ui32Idx < NUM_RADIO_BUTTONS_Triggers; ui32Idx++)
@@ -1176,6 +1179,10 @@ void TriggerModeSelect(tWidget *psWidget, uint32_t bSelected){
 		          break;
 		      }
 		  }
+		  if(ui32Idx == NUM_RADIO_BUTTONS_TriggerMode)
+		    {
+		        return;
+		    }
 
 /////Postive edge////////////
 		  if(ui32Idx==0){
@@ -1214,6 +1221,7 @@ void TriggerSourceSelect(tWidget *psWidget, uint32_t bSelected){
 ////Channel select function///////////////////////////////
 void ChannelSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
 	  uint32_t ui32Idx;
+
 	  for(ui32Idx = 0; ui32Idx < NUM_RADIO_BUTTONS_Channels; ui32Idx++)
 	  {
 	      if(psWidget == (tWidget *)(g_psRadioBtnChannels + ui32Idx))
@@ -1221,6 +1229,11 @@ void ChannelSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
 	          break;
 	      }
 	  }
+	  if(ui32Idx == NUM_RADIO_BUTTONS_Channels)
+	    {
+
+	        return;
+	    }
 	  if(ui32Idx==0){
 		  Ch1on = 1;
 		  Ch2on = 0;
@@ -1244,6 +1257,7 @@ void ChannelSelectRadioBtns(tWidget *psWidget, uint32_t bSelected){
 		  WidgetPaint((tWidget * )&g_sC1Slider);
 		  WidgetPaint((tWidget * )&g_sC2Slider);
 	  }
+
 }
 
 
