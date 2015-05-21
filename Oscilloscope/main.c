@@ -2154,7 +2154,7 @@ void setup(void) {
 	mvpixel[7] = 5000.0/15;
 	mvpixel[8] = 10000.0/15;
 	mvpixel[9] = 20000.0/15;
-	mvpixel[10] = 50000.0/15;
+	mvpixel[10] = 25000.0/15;
 
 	// Setup the seconds per pixel for horixtonal scale division
 	secpixel[0] = (8*.00000002)/240;
@@ -2414,7 +2414,7 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
 			break;
 		case 4: // 500mV/div
-			pixel_divider1 = 21.586;
+			pixel_divider1 = 32.586;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,0);
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,0);
@@ -2425,7 +2425,7 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
 			break;
 		case 5: // 1V/div
-			pixel_divider1 = 21.586;
+			pixel_divider1 = 32.586;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,0);
@@ -2436,18 +2436,17 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
 			break;
 		case 6: // 2V/div
-			pixel_divider1 = 12.335;
+			pixel_divider1 = 32.586;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,0);
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
 			// DVGA
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,0);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
+			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,0);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
+			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
 			break;
 		case 7: // 5V/div
-			//pixel_divider1 = 18.728;
 			pixel_divider1 = 43.073;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
@@ -2459,7 +2458,6 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
 			break;
 		case 8: // 10V/div
-			//pixel_divider1 = 27.772;
 			pixel_divider1 = 43.176;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
@@ -2471,7 +2469,6 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
 			break;
 		case 9: // 20V/div
-			//pixel_divider1 = 23.6887;
 			pixel_divider1 = 54.484;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
@@ -2483,7 +2480,6 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
 			break;
 		case 10: // 25V/div
-			//pixel_divider1 = 59.222;
 			pixel_divider1 = 68.105;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
@@ -2494,42 +2490,9 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
 			break;
-		case 11: // 10V/div
-			// Multiplexer
-			pixel_divider1 = 118.443;
-			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
-			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
-			// DVGA
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
-			break;
-		case 12: // 20V/div
-			// Multiplexer
-			pixel_divider1 = 236.887;
-			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
-			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
-			// DVGA
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
-			break;
-		case 13: // 25V/div
-			// Multiplexer
-			pixel_divider1 = 296.108;
-			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
-			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
-			// DVGA
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
-			break;
 		default:
 			// Multiplexer
-			pixel_divider1 = 296.108;
+			pixel_divider1 = 68.105;
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
 			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
 			// DVGA
@@ -2542,7 +2505,7 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 	}
 	else if(Channel == 2){
 		switch (Scale) {
-		case 0: // 2mV/div
+		case 0: // 20mV/div
 			pixel_divider2 = 5.461;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,0);
@@ -2553,7 +2516,7 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
 			break;
-		case 1: // 5mV/div
+		case 1: // 50mV/div
 			pixel_divider2 = 13.653;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,0);
@@ -2564,7 +2527,7 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
 			break;
-		case 2: // 10mV/div
+		case 2: // 100mV/div
 			pixel_divider2 = 21.639;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,0);
@@ -2575,7 +2538,7 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
 			break;
-		case 3: // 20mV/div
+		case 3: // 200mV/div
 			pixel_divider2 = 21.69;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,0);
@@ -2586,8 +2549,8 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
 			break;
-		case 4: // 50mV/div
-			pixel_divider2 = 21.586;
+		case 4: // 500mV/div
+			pixel_divider2 = 25.586;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,0);
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,0);
@@ -2597,8 +2560,8 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
 			break;
-		case 5: // 100mV/div
-			pixel_divider2 = 21.586;
+		case 5: // 1V/div
+			pixel_divider2 = 25.586;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,0);
@@ -2608,8 +2571,8 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
 			break;
-		case 6: // 200mV/div
-			pixel_divider2 = 21.586;
+		case 6: // 2V/div
+			pixel_divider2 = 25.586;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,0);
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
@@ -2619,8 +2582,7 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
 			break;
-		case 7: // 500mV/div
-			//pixel_divider2 = 18.728;
+		case 7: // 5V/div
 			pixel_divider2 = 43.073;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
@@ -2631,8 +2593,7 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
 			break;
-		case 8: // 1V/div
-			//pixel_divider2 = 27.772;
+		case 8: // 10V/div
 			pixel_divider2 = 43.176;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
@@ -2643,8 +2604,7 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
 			break;
-		case 9: // 2V/div
-			//pixel_divider2 = 23.6887;
+		case 9: // 20V/div
 			pixel_divider2 = 54.484;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
@@ -2655,8 +2615,7 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
 			break;
-		case 10: // 5V/div 2.5V/div
-			//pixel_divider2 = 59.222;
+		case 10: // 25V/div
 			pixel_divider2 = 68.105;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
@@ -2667,41 +2626,8 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
 			break;
-		case 11: // 10V/div
-			pixel_divider2 = 118.443;
-			// Multiplexer
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
-			// DVGA
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,ECh2_DVGA_D1);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
-			break;
-		case 12: // 20V/div
-			pixel_divider2 = 236.887;
-			// Multiplexer
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
-			// DVGA
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,ECh2_DVGA_D1);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
-			break;
-		case 13: // 25V/div
-			pixel_divider2 = 296.108;
-			// Multiplexer
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
-			// DVGA
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,ECh2_DVGA_D1);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
-			break;
 		default:
-			pixel_divider2 = 296.108;
+			pixel_divider2 = 68.105;
 			// Multiplexer
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
 			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
@@ -2712,153 +2638,6 @@ void SetupVoltageDivision(uint8_t Scale, uint8_t Channel){
 			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
 			break;
 		}
-
-		// Testing cases
-		/*switch (Scale) {
-		case 0:
-			// Multiplexer
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0,BCh1_Mult_A0);
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1,BCh1_Mult_A1);
-			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
-			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1,ACh2_Mult_A1);
-			// DVGA
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,ECh2_DVGA_D1);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
-			break;
-		case 1:
-			// Multiplexer
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0, 0);
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1, BCh1_Mult_A1);
-			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0, 0);
-			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1, ACh2_Mult_A1);
-			// DVGA
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,0);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,0);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
-			break;
-		case 2:
-			// Multiplexer
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0, BCh1_Mult_A0);
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1, 0);
-			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0,ACh2_Mult_A0);
-			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1, 0);
-			// DVGA
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,0);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,0);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,MCh1_DVGA_D3);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,0);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,MCh2_DVGA_D3);
-			break;
-		case 3:
-			// Multiplexer
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A0, 0);
-			GPIOPinWrite(GPIO_PORTB_BASE, BCh1_Mult_A1, 0);
-			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A0, 0);
-			GPIOPinWrite(GPIO_PORTA_BASE, ACh2_Mult_A1, 0);
-			// DVGA
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,ECh2_DVGA_D1);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
-			break;
-		case 4:
-			// DVGA
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,0);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,ECh2_DVGA_D1);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
-			break;
-		case 5:
-			// DVGA
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,0);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
-			break;
-		case 6:
-			// DVGA
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,0);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,ECh1_DVGA_D2);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,0);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,DCh2_DVGA_D2);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
-			break;
-		case 7:
-			// DVGA
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,0);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,ECh2_DVGA_D1);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
-			break;
-		case 8:
-			// DVGA
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,0);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,DCh1_DVGA_D1);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,0);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,ECh2_DVGA_D1);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
-			break;
-		case 9:
-			// DVGA
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,ECh1_DVGA_D0);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,0);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,ECh2_DVGA_D0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,0);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
-			break;
-		case 10:
-			// DVGA
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D0,0);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh1_DVGA_D1,0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh1_DVGA_D2,0);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh1_DVGA_D3,0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D0,0);
-			GPIOPinWrite(GPIO_PORTE_BASE, ECh2_DVGA_D1,0);
-			GPIOPinWrite(GPIO_PORTD_BASE, DCh2_DVGA_D2,0);
-			GPIOPinWrite(GPIO_PORTM_BASE, MCh2_DVGA_D3,0);
-			break;
-		default:
-			break;
-		}*/
 	}
 }
 
